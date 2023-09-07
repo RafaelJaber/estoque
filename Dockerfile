@@ -1,6 +1,6 @@
-FROM tiagofsmg/openjdk:11
+FROM adoptopenjdk/openjdk11:latest
 
-MAINTAINER Tiago Oliveira <tiago@giganet.psi.br>
+MAINTAINER Rafael Jaber <rafael.jaber@gmail.com>
 
 COPY app.jar /app/
 

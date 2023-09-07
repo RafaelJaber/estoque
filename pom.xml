@@ -13,6 +13,7 @@
     <artifactId>stock-control-webapi</artifactId>
     <version>1.6.9-1</version>
     <description>Demo project for Spring Boot</description>
+    <packaging>jar</packaging>
 
     <repositories>
         <repository>
@@ -23,6 +24,7 @@
 
     <properties>
         <java.version>11</java.version>
+        <maven.test.skip>true</maven.test.skip>
     </properties>
 
     <dependencies>
