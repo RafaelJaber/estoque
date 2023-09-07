@@ -1,0 +1,2243 @@
+= Giganet - Módulo de Estoque - API
+v1.4.0, Lucas Henrique, 02/10/2020
+:doctype: book
+:icons: font
+:source-highlighter: highlightjs
+:highlightjs-theme: github
+:toc: left
+:toclevels: 3
+:sectlinks:
+:sectnums:
+:toc-title: Lista de Recursos
+:version-label: 1.0
+:table-caption: Tabela
+:last-update-label: Última modificação
+
+== Introdução
+
+Esta documentação tem como objetivo exemplificar o funcionamento da API para facilitar o desenvolvimento, manutenção e evolução do projeto ao longo do tempo.
+
+=== Fluxo dos processos
+
+=== Estrutura do projeto
+
+O projeto procura seguir o padrão de projeto MVC implementados por meio do Spring Framework.
+Dentro da pasta raiz, a aplicação está organizada em submódulos de acordo com sua relevância dentro da aplicação.
+Cada submódulo está organizado da seguinte maneira:
+
+- model: contém as classes de modelo da aplicação, representando a organização dos dados no banco de dados;
+
+- repository: contém as interfaces de operações do banco de dados.
+É utilizado o Spring Data.
+
+- adapter: contém das classes responsáveis por fazer a adaptação entre as interfaces recebidas pelos endpoints e os modelos internos da aplicação.
+
+- controller: contém as classes as quais possuem os métodos acionados ao receberem requisições HTTP. Além disso, as classes relacionadas as seguranças dos métodos (annotations), e os beans de request e response estão contidos nesta pasta.
+Considerações: os nomes "Projection" e "Response" estão associados aos beans de resposta das requisições.
+Por padrão, os beans chamados projections são apenas projeções, com dados simplificados comumente utilizados em respostas com arrays.
+Já os beans chamados response são os quais contém todas as informações sobre os registros.
+
+- factory: contém as classes as quais são responsáveis por realizar a instanciação de objetos (Factory Design Pattern).
+
+Toda a estrutura de configuração das bibliotecas utilizadas, segurança, entre outros, estão presentes no pacote config, organizadas de acordo com sua categoria.
+
+=== Requisições e Respostas
+
+O projeto busca seguir as especificações REST. Logo, HTTP status e verbos seguem os padrões HTTP, sendo 200 para sucesso, 201 para criado, 404 para não encontrado e assim sucessivamente.
+Ao final desta documentação, algumas requisições contendo erros são exemplificadas.
+
+=== Autenticação e Autorização
+
+O projeto é construído majoritariamente utilizando OAuth2 para a segurança.
+A autenticação é realizada através de uma consulta a API externa do Smartnet, e a autorização é realizada com base nas permissões do usuário na presente aplicação.
+Tal fluxo é transparente para o usuário final.
+
+Para atender necessidades específicas de clientes como o aplicativo dos Tecnicos e SmartNet (UI), foram implementados também algumas rotas prefixadas por "/basic".
+Estas rotas possuem modelo de autenticação Basic e devem ser utilizadas apenas em *COMUNICAÇÕES ENTRE APIS*, uma vez que possuem uma chave de segurança estática, logo não pode ser algo exposto em aplicações não seguras.
+Cada API possui o seu usuário e senha utilizado para realizar a validação da API. Além disso, nestes casos um parâmetro "User-Id" é requerido de forma a identificar qual é o usuário logado e suas respectivas permissões.
+Note que: a responsabilidade de informar qual é o usuário logado é *DA API EXTERNA*.
+Caso sejam informados usuários incorretos, isto pode resultar em operações não adequadas com o respectivo usuário.
+
+Além disso, existem também Webhooks públicos por padrão os implementam lógica própria para validação/autenticação e autorização das operações relacionadas.
+Saiba mais na sessão de webhooks.
+
+==== Autenticação utilizando OAuth2
+
+Para os endpoints relacionados a OAuth2, a autenticação é realizada da seguinte forma:
+
+. Realize o login do usuário de acordo com o exemplo abaixo.
+
+.. *Requisição*
+
+include::{snippets}/authentication_docs/login/http-request.adoc[]
+include::{snippets}/authentication_docs/login/request-parameters.adoc[]
+
+[start=2]
+.. *Resposta*
+
+include::{snippets}/authentication_docs/login/http-response.adoc[]
+include::{snippets}/authentication_docs/login/response-fields.adoc[]
+
+NOTE QUE: O refresh token é retornado em um cookie.
+Logo, o próprio Browser do usuário gerencia o envio ou não.
+Além disso, é HTTP only.
+Caso o sistema esteja em HTTPS, é possível ainda habilitar este nível a mais de segurança (HTTPS Only).
+
+Após realizar o login, adicione o valor do *access_token* no cabeçalho de todas as requisições de acordo com a forma abaixo, substituindo o {access_token} pelo respectivo valor do access token obtido acima.
+
+    Authorization: Bearer {access_token}
+
+[start=2]
+. Uma vez que o access token expirar será necessário solicitar um novo access token.
+Este é concedido de acordo com o refresh token informado.
+Caso o refresh token seja válido, um novo access token será emitido.
+Caso contrário, o usuário deverá fazer um novo login.
+
+.. *Requisição*
+
+include::{snippets}/authentication_docs/refresh_token/http-request.adoc[]
+include::{snippets}/authentication_docs/refresh_token/request-parameters.adoc[]
+
+[start=2]
+.. *Resposta*
+
+include::{snippets}/authentication_docs/refresh_token/http-response.adoc[]
+include::{snippets}/authentication_docs/refresh_token/response-fields.adoc[]
+
+==== Autenticação utilizando Basic
+
+Este modelo de autenticação é aceito apenas em requisições cujo context path seja /basic.
+Este modelo destina-se a requisições somente Server-to-Server.
+
+A fim de facilitar a identificação das rotas com este modelo de autenticação, todas as sessões contém a palavra *BASIC* no título. Logo, basta procurar por essa palavra chave que encontrará os itens relacionados mais facilmente.
+
+*Requisição*
+include::{snippets}/authentication_docs/basic_authentication/http-request.adoc[]
+
+    Note que além do Basic, é necessário adicionar o cabeçalho User-Id. Este campo refere-se ao User Id do usuário na base de dados externa e será utilizado para identificar o usuário.
+
+==== Filial Associada
+Além dos métodos de autenticação associados anteriormente, a partir da versão 1.0 um novo cabeçalho foi adicionado. Este refere-se a qual filial a solicitação esta associada. *Esta informação será utilizada de acordo com a estratégia e regra de negócio de cada funcionalidade*. Uma tratativa comum em grande parte dos endpoints é a utilização deste valor para filtrar os resultados da resposta.
+
+Um usuário só pode acessar informações das filiais as quais ele está associado, ou seja, se ele está associado as filiais Ipatinga e GV, este poderá solicitar recursos utilizando qualquer uma das duas filiais como parâmetros. Porém, caso ele possua acesso somente a Ipatinga, ele poderá informar apenas a filial Ipatinga como parâmetro. Caso informe a filial GV como parâmetro, terá seu acesso negado.
+
+Exemplo: listagem de entradas de estoque -> será utilizado para como filtro a fim de retornar apenas as entradas cujo o destino foi a filial passada no cabeçalho.
+
+Note que esse cabeçalho deve ser informado para *todas* as requisições relacionadas ao modelo OAuth2, exceto para as requisições de autenticação. Para as requisições utilizando a autenticação Basic não é necessário uma vez que a filial associada será justamente a filial do técnico associado.
+
+    Office-Id: {id da filial associada}
+
+*Requisição*
+include::{snippets}/authentication_docs/branch_office_header_example/http-request.adoc[]
+
+=== Notas aos desenvolvedores
+
+A parte textual desta documentação é gerada manualmente.
+Todas as requisições e respostas, com os respectivos campos, estrutura, etc. são gerados automaticamente durante a etapa de execução dos testes automatizados, entretanto, a documentação textual é escrita manualmente.
+Caso seja encontrado erros de escrita ou até mesmo informações erradas, entre em contato com o responsável para a correção.
+
+== Endpoints
+
+//==============================================================
+=== Entradas
+
+Endpoints relacionados ao módulo de entradas.
+Os lançamentos realizados para as ordens de compra são realizados através deste módulo.
+
+==== Find All
+
+*Requisição*
+include::{snippets}/entries_docs/find_all/http-request.adoc[]
+
+*Resposta*
+include::{snippets}/entries_docs/find_all/http-response.adoc[]
+include::{snippets}/entries_docs/find_all/response-fields.adoc[]
+
+==== Find By Id
+
+Pesquisa o registro pelo o id, gerado pelo banco de dados.
+
+*Requisição*
+include::{snippets}/entries_docs/find_by_id/http-request.adoc[]
+include::{snippets}/entries_docs/find_by_id/path-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/entries_docs/find_by_id/http-response.adoc[]
+include::{snippets}/entries_docs/find_by_id/response-fields.adoc[]
+
+==== Find By Id With Meta Data
+
+Pesquisa o lançamento pelo o id, gerado pelo banco de dados e retorna todos os itens com respectivas informações extras sobre o lançamento.
+
+Este endpoint tem como objetivo auxiliar o usuário durante o cadastro de novos lançamentos, informando-o de registros passados.
+
+*Requisição*
+include::{snippets}/entries_docs/find_by_id_with_meta_data/http-request.adoc[]
+include::{snippets}/entries_docs/find_by_id_with_meta_data/path-parameters.adoc[]
+include::{snippets}/entries_docs/find_by_id_with_meta_data/request-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/entries_docs/find_by_id_with_meta_data/http-response.adoc[]
+include::{snippets}/entries_docs/find_by_id_with_meta_data/response-fields.adoc[]
+
+==== Find By Item Id With Meta Data
+
+Pesquisa o item do lançamento pelo o id, gerado pelo banco de dados e retorna-o com as respectivas informações extras sobre o lançamento.
+
+Este endpoint tem como objetivo auxiliar o usuário durante o cadastro de novos lançamentos, informando-o de registros passados.
+
+*Requisição*
+include::{snippets}/entries_docs/find_by_item_id_with_meta_data/http-request.adoc[]
+include::{snippets}/entries_docs/find_by_item_id_with_meta_data/path-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/entries_docs/find_by_item_id_with_meta_data/http-response.adoc[]
+include::{snippets}/entries_docs/find_by_item_id_with_meta_data/response-fields.adoc[]
+
+==== Insert
+
+*Requisição*
+include::{snippets}/entries_docs/insert/http-request.adoc[]
+include::{snippets}/entries_docs/insert/request-fields.adoc[]
+
+*Resposta*
+include::{snippets}/entries_docs/insert/http-response.adoc[]
+include::{snippets}/entries_docs/insert/response-fields.adoc[]
+
+//==========================================================
+=== Estoques
+
+Endpoints relacionados ao módulo de estoques.
+Incorpora todos os estoques, sejam eles do tipo Galpão, Técnicos, Clientes, Lojas ou Manutenção.
+Para a aplicação são apenas estoques e se comportam da mesma maneira, tendo apenas algumas particularidades em alguns pontos do processo.
+
+Cada estoque possue uma estrutura da seguinte forma:
+
+- Um objeto "Stock" o qual representa os estoques contendo suas informações sobre localidade, nome, entre outros.
+
+- Cada "Stock" possue os itens associados.
+O relacionamento entre os itens e o estoque resulta na relação "StockItem".
+Cada item possue suas particularidades, como quantidade mínima, máxima, quantidade atual, etc.
+
+==== Find All Stock Items by Stock
+
+Retorna todos os itens em estoque dado um estoque específico
+
+*Requisição*
+include::{snippets}/stocks_docs/find_all_stock_items_by_stock/http-request.adoc[]
+include::{snippets}/stocks_docs/find_all_stock_items_by_stock/path-parameters.adoc[]
+include::{snippets}/stocks_docs/find_all_stock_items_by_stock/request-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/stocks_docs/find_all_stock_items_by_stock/http-response.adoc[]
+include::{snippets}/stocks_docs/find_all_stock_items_by_stock/response-fields.adoc[]
+
+==== Find All Available Stock Items by Stock
+
+Retorna todos os itens em estoque disponíveis para movimentações dado um estoque específico. Em outras palavras: retorna os itens cuja a quantidade seja maior que zero e que a quantidade disponível tambem seja maior do que zero.
+
+*Requisição*
+include::{snippets}/stocks_docs/find_all_available_stock_items_by_stock/http-request.adoc[]
+include::{snippets}/stocks_docs/find_all_available_stock_items_by_stock/path-parameters.adoc[]
+include::{snippets}/stocks_docs/find_all_available_stock_items_by_stock/request-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/stocks_docs/find_all_available_stock_items_by_stock/http-response.adoc[]
+include::{snippets}/stocks_docs/find_all_available_stock_items_by_stock/response-fields.adoc[]
+
+==== Find All Stock Items by Stock With Current Level
+
+Retorna todos os itens em estoque dado um estoque específico acrescentando também a lista com os níveis cadastrados
+
+*Requisição*
+include::{snippets}/stocks_docs/find_all_stock_items_by_stock_with_current_level/http-request.adoc[]
+include::{snippets}/stocks_docs/find_all_stock_items_by_stock_with_current_level/path-parameters.adoc[]
+include::{snippets}/stocks_docs/find_all_stock_items_by_stock_with_current_level/request-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/stocks_docs/find_all_stock_items_by_stock_with_current_level/http-response.adoc[]
+include::{snippets}/stocks_docs/find_all_stock_items_by_stock_with_current_level/response-fields.adoc[]
+
+==== Find All
+
+*Requisição*
+include::{snippets}/stocks_docs/find_all/http-request.adoc[]
+include::{snippets}/stocks_docs/find_all/request-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/stocks_docs/find_all/http-response.adoc[]
+include::{snippets}/stocks_docs/find_all/response-fields.adoc[]
+
+==== Find All Technician Stocks
+
+Retorna todos os estoques de técnicos de acordo com a paginação informada.
+Este método se difere do "Find All" apenas pelo retorno o qual é fornecido.
+Neste método, além das informações básicas do estoque, também é retornado informações sobre o técnico responsável pelos respectivos estoques.
+
+*Requisição*
+include::{snippets}/stocks_docs/find_all_technician_stocks/http-request.adoc[]
+include::{snippets}/stocks_docs/find_all_technician_stocks/request-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/stocks_docs/find_all_technician_stocks/http-response.adoc[]
+include::{snippets}/stocks_docs/find_all_technician_stocks/response-fields.adoc[]
+
+==== Find By Product Name Group By Product
+
+Pesquisa todos os itens pelo nome considerando e agrupando todo o estoque da empresa.
+
+*Requisição*
+include::{snippets}/stocks_docs/find_by_product_group_by_product/http-request.adoc[]
+include::{snippets}/stocks_docs/find_by_product_group_by_product/request-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/stocks_docs/find_by_product_group_by_product/http-response.adoc[]
+include::{snippets}/stocks_docs/find_by_product_group_by_product/response-fields.adoc[]
+
+==== Find By Stock Id
+
+*Requisição*
+include::{snippets}/stocks_docs/find_by_stock_id/http-request.adoc[]
+include::{snippets}/stocks_docs/find_by_stock_id/path-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/stocks_docs/find_by_stock_id/http-response.adoc[]
+include::{snippets}/stocks_docs/find_by_stock_id/response-fields.adoc[]
+
+==== Find By Stock And Code
+
+*Requisição*
+include::{snippets}/stocks_docs/find_by_stock_and_code/http-request.adoc[]
+include::{snippets}/stocks_docs/find_by_stock_and_code/path-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/stocks_docs/find_by_stock_and_code/http-response.adoc[]
+include::{snippets}/stocks_docs/find_by_stock_and_code/response-fields.adoc[]
+
+==== Find By Stock Item Id
+
+*Requisição*
+include::{snippets}/stocks_docs/find_by_stock_item_id/http-request.adoc[]
+include::{snippets}/stocks_docs/find_by_stock_item_id/path-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/stocks_docs/find_by_stock_item_id/http-response.adoc[]
+include::{snippets}/stocks_docs/find_by_stock_item_id/response-fields.adoc[]
+
+==== Find By Stock Item Id With Current Level
+
+*Requisição*
+include::{snippets}/stocks_docs/find_by_stock_item_id_with_levels/http-request.adoc[]
+include::{snippets}/stocks_docs/find_by_stock_item_id_with_levels/request-parameters.adoc[]
+include::{snippets}/stocks_docs/find_by_stock_item_id_with_levels/path-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/stocks_docs/find_by_stock_item_id_with_levels/http-response.adoc[]
+include::{snippets}/stocks_docs/find_by_stock_item_id_with_levels/response-fields.adoc[]
+
+==== Get Stock Situation Report
+
+Retorna um relatório contendo todos os itens em estoque no momento atual. Aceita 2 formatos de saída: PDF ou CSV.
+A resposta da requisição será o arquivo desejado.
+
+*Requisição*
+include::{snippets}/stocks_docs/get_stock_situation_report/http-request.adoc[]
+include::{snippets}/stocks_docs/get_stock_situation_report/request-parameters.adoc[]
+include::{snippets}/stocks_docs/get_stock_situation_report/path-parameters.adoc[]
+
+
+==== Update Stock Item Parameters
+
+Atualiza os parametros de um item de estoque.
+
+Considerações:
+- Esta função *pode* atualizar a *quantidade* em estoque. Caso seja informada, o sistema calculará a diferença entre a quantidade atual e a quantidade informada e,desta forma, criará movimentações de forma que a quantidade atual seja igual a quantidade informada. O fluxo da movimentação continua o mesmo.
+- Caso seja alterado o preço unitário, esta funcão também atualizará o preço unitário do respectivo item em todos os estoques a fim de manter a coerência.
+
+*Requisição*
+include::{snippets}/stocks_docs/update_stock_item_parameters/http-request.adoc[]
+include::{snippets}/stocks_docs/update_stock_item_parameters/request-fields.adoc[]
+
+*Resposta*
+include::{snippets}/stocks_docs/update_stock_item_parameters/http-response.adoc[]
+include::{snippets}/stocks_docs/update_stock_item_parameters/response-fields.adoc[]
+
+==== Find All Stock Items From Technician Stock By UserId - BASIC
+
+*Requisição*
+include::{snippets}/stocks_docs/find_all_stock_items_from_technician_stock_by_user_id/http-request.adoc[]
+include::{snippets}/stocks_docs/find_all_stock_items_from_technician_stock_by_user_id/path-parameters.adoc[]
+include::{snippets}/stocks_docs/find_all_stock_items_from_technician_stock_by_user_id/request-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/stocks_docs/find_all_stock_items_from_technician_stock_by_user_id/http-response.adoc[]
+include::{snippets}/stocks_docs/find_all_stock_items_from_technician_stock_by_user_id/response-fields.adoc[]
+
+==== Find All - BASIC
+
+*Requisição*
+include::{snippets}/stocks_docs/basic_find_all/http-request.adoc[]
+include::{snippets}/stocks_docs/basic_find_all/request-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/stocks_docs/basic_find_all/http-response.adoc[]
+include::{snippets}/stocks_docs/basic_find_all/response-fields.adoc[]
+
+==== Find All Available To Move By Technician - BASIC
+
+Retorna todos os estoques disponíveis para movimentação dado o usuário logado.
+
+*Requisição*
+include::{snippets}/stocks_docs/find_all_available_to_move_by_technician/http-request.adoc[]
+include::{snippets}/stocks_docs/find_all_available_to_move_by_technician/request-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/stocks_docs/find_all_available_to_move_by_technician/http-response.adoc[]
+include::{snippets}/stocks_docs/find_all_available_to_move_by_technician/response-fields.adoc[]
+
+//============================================================
+=== Patrimônios
+
+Endpoints relacionados ao módulo de patrimônios.
+
+    Patrimônios são "registros de produtos contendo um código único de identificação e estão em algum lugar em um instante de tempo".
+
+A presente implementação de controle de patrimônio é totalmente desacoplada do controle de estoque, não possuindo nem mesmo referências entre eles.
+Controle de patrimônio tem como objetivo apenas registrar informações básicas sobre itens cujo o desejo é acompanhar toda a sua trajetória.
+
+Um patrimônio contém relacionamento com um produto em específico, adicionando um código de forma a identificar o item em meio aos outros.
+
+Além disso, possui um campo relacionado a localização.
+Embora este campo possa possuir os mesmos nomes de estoques, são registros distintos.
+Todas as movimentações relacionadas são registradas, de forma a armazenar o histórico, desde o momento do cadastro até o presente momento.
+
+Obs: Em casos onde o patrimônio está sendo cadastrado a partir de uma entrada de estoque oriunda de uma ordem de compra, será possível até mesmo saber a qual ordem de compra ele está associado.
+
+==== Find All
+
+*Requisição*
+include::{snippets}/patrimonies_docs/find_all/http-request.adoc[]
+include::{snippets}/patrimonies_docs/find_all/request-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/patrimonies_docs/find_all/http-response.adoc[]
+include::{snippets}/patrimonies_docs/find_all/response-fields.adoc[]
+
+==== Find All By Product Name Or Code Or Location
+
+*Requisição*
+include::{snippets}/patrimonies_docs/find_all_by_product_name_or_code_or_location/http-request.adoc[]
+include::{snippets}/patrimonies_docs/find_all_by_product_name_or_code_or_location/request-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/patrimonies_docs/find_all_by_product_name_or_code_or_location/http-response.adoc[]
+include::{snippets}/patrimonies_docs/find_all_by_product_name_or_code_or_location/response-fields.adoc[]
+
+==== Find All By Current Location
+
+Retorna todos os patrimônios dado as respectivas localizações.
+
+*Requisição*
+include::{snippets}/patrimonies_docs/find_all_by_location/http-request.adoc[]
+include::{snippets}/patrimonies_docs/find_all_by_location/path-parameters.adoc[]
+include::{snippets}/patrimonies_docs/find_all_by_location/request-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/patrimonies_docs/find_all_by_location/http-response.adoc[]
+include::{snippets}/patrimonies_docs/find_all_by_location/response-fields.adoc[]
+
+==== Find All By Current Location And Product
+
+*Requisição*
+include::{snippets}/patrimonies_docs/find_all_by_current_location_and_product/http-request.adoc[]
+include::{snippets}/patrimonies_docs/find_all_by_current_location_and_product/path-parameters.adoc[]
+include::{snippets}/patrimonies_docs/find_all_by_current_location_and_product/request-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/patrimonies_docs/find_all_by_current_location_and_product/http-response.adoc[]
+include::{snippets}/patrimonies_docs/find_all_by_current_location_and_product/response-fields.adoc[]
+
+==== Find All By Product
+
+*Requisição*
+include::{snippets}/patrimonies_docs/find_all_by_product/http-request.adoc[]
+include::{snippets}/patrimonies_docs/find_all_by_product/path-parameters.adoc[]
+include::{snippets}/patrimonies_docs/find_all_by_product/request-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/patrimonies_docs/find_all_by_product/http-response.adoc[]
+include::{snippets}/patrimonies_docs/find_all_by_product/response-fields.adoc[]
+
+==== Find By Id
+
+*Requisição*
+include::{snippets}/patrimonies_docs/find_by_id/http-request.adoc[]
+include::{snippets}/patrimonies_docs/find_by_id/path-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/patrimonies_docs/find_by_id/http-response.adoc[]
+include::{snippets}/patrimonies_docs/find_by_id/response-fields.adoc[]
+
+==== Find By Id With History
+
+Pesquisa o patrimônio pelo ID, retornando também informações sobre o histórico do patrimônio.
+
+*Requisição*
+include::{snippets}/patrimonies_docs/find_by_id_with_history/http-request.adoc[]
+include::{snippets}/patrimonies_docs/find_by_id_with_history/path-parameters.adoc[]
+include::{snippets}/patrimonies_docs/find_by_id_with_history/request-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/patrimonies_docs/find_by_id_with_history/http-response.adoc[]
+include::{snippets}/patrimonies_docs/find_by_id_with_history/response-fields.adoc[]
+
+==== Find By Unique Code
+
+*Requisição*
+include::{snippets}/patrimonies_docs/find_by_unique_code/http-request.adoc[]
+include::{snippets}/patrimonies_docs/find_by_unique_code/path-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/patrimonies_docs/find_by_unique_code/http-response.adoc[]
+include::{snippets}/patrimonies_docs/find_by_unique_code/response-fields.adoc[]
+
+==== Insert
+
+*Requisição*
+include::{snippets}/patrimonies_docs/insert/http-request.adoc[]
+include::{snippets}/patrimonies_docs/insert/request-fields.adoc[]
+
+*Resposta*
+include::{snippets}/patrimonies_docs/insert/http-response.adoc[]
+include::{snippets}/patrimonies_docs/insert/response-fields.adoc[]
+
+==== Insert Batch
+
+Realiza o cadastro de patrimônios em lote.
+
+*Requisição*
+include::{snippets}/patrimonies_docs/insert_batch/http-request.adoc[]
+include::{snippets}/patrimonies_docs/insert_batch/request-fields.adoc[]
+
+*Resposta*
+include::{snippets}/patrimonies_docs/insert_batch/http-response.adoc[]
+include::{snippets}/patrimonies_docs/insert_batch/response-fields.adoc[]
+
+==== Update
+
+*Requisição*
+include::{snippets}/patrimonies_docs/update/http-request.adoc[]
+include::{snippets}/patrimonies_docs/update/path-parameters.adoc[]
+include::{snippets}/patrimonies_docs/update/request-fields.adoc[]
+
+*Resposta*
+include::{snippets}/patrimonies_docs/update/http-response.adoc[]
+include::{snippets}/patrimonies_docs/update/response-fields.adoc[]
+
+==== Delete By Id
+
+Note que: internamente patrimônio possui uma propriedade "isVisible".
+Quando esta operação é executada, esta propriedade é apenas alterada para false.
+Uma vez que o patrimonio for atualizado, ele se tornará visível novamente.
+
+*Requisição*
+include::{snippets}/patrimonies_docs/delete_by_id/http-request.adoc[]
+include::{snippets}/patrimonies_docs/delete_by_id/path-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/patrimonies_docs/delete_by_id/http-response.adoc[]
+
+==== Move Patrimony
+
+Atualiza a localização do patrimônio.
+Esta operação resulta também em uma movimentação do patrimônio, adicionando ao respectivo histórico.
+
+*Requisição*
+include::{snippets}/patrimonies_docs/move_patrimony/http-request.adoc[]
+include::{snippets}/patrimonies_docs/move_patrimony/path-parameters.adoc[]
+include::{snippets}/patrimonies_docs/move_patrimony/request-fields.adoc[]
+
+*Resposta*
+include::{snippets}/patrimonies_docs/move_patrimony/http-response.adoc[]
+include::{snippets}/patrimonies_docs/move_patrimony/response-fields.adoc[]
+
+==== Find All From Technician By Product - BASIC
+
+*Requisição*
+include::{snippets}/patrimonies_docs/find_all_from_technician_by_product/http-request.adoc[]
+include::{snippets}/patrimonies_docs/find_all_from_technician_by_product/path-parameters.adoc[]
+include::{snippets}/patrimonies_docs/find_all_from_technician_by_product/request-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/patrimonies_docs/find_all_from_technician_by_product/http-response.adoc[]
+include::{snippets}/patrimonies_docs/find_all_from_technician_by_product/response-fields.adoc[]
+
+==== Find All From Customer By Code - BASIC
+
+*Requisição*
+include::{snippets}/patrimonies_docs/find_all_from_customer_by_code/http-request.adoc[]
+include::{snippets}/patrimonies_docs/find_all_from_customer_by_code/path-parameters.adoc[]
+include::{snippets}/patrimonies_docs/find_all_from_customer_by_code/request-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/patrimonies_docs/find_all_from_customer_by_code/http-response.adoc[]
+include::{snippets}/patrimonies_docs/find_all_from_customer_by_code/response-fields.adoc[]
+
+==== Find By Id -BASIC
+
+*Requisição*
+include::{snippets}/patrimonies_docs/basic_find_by_id/http-request.adoc[]
+include::{snippets}/patrimonies_docs/basic_find_by_id/path-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/patrimonies_docs/basic_find_by_id/http-response.adoc[]
+include::{snippets}/patrimonies_docs/basic_find_by_id/response-fields.adoc[]
+
+==== Insert By Technician - BASIC
+
+*Requisição*
+include::{snippets}/patrimonies_docs/insert_by_technician/http-request.adoc[]
+include::{snippets}/patrimonies_docs/insert_by_technician/request-fields.adoc[]
+
+*Resposta*
+include::{snippets}/patrimonies_docs/insert_by_technician/http-response.adoc[]
+include::{snippets}/patrimonies_docs/insert_by_technician/response-fields.adoc[]
+
+==== Update - BASIC
+
+*Requisição*
+include::{snippets}/patrimonies_docs/basic_update/http-request.adoc[]
+include::{snippets}/patrimonies_docs/basic_update/path-parameters.adoc[]
+include::{snippets}/patrimonies_docs/basic_update/request-fields.adoc[]
+
+*Resposta*
+include::{snippets}/patrimonies_docs/basic_update/http-response.adoc[]
+include::{snippets}/patrimonies_docs/basic_update/response-fields.adoc[]
+
+//============================================================
+=== Movimentações
+
+Endpoints relacionados ao módulo de movimentações.
+
+Algumas características das movimentações:
+- São tratadas de única, por produtos, entretanto, é possível realizar movimentações em lote; - Uma movimentação após salva, não pode ser mais modificada ou excluída, sendo permitido apenas realizar o cancelamento.
+- Pode assumir 3 tipos: entrada de item, entre estoques e saída de item.
+O tipo da movimentação influencia nos requisitos mínimos e no comportamento adotado.
+
+*Entrada de item*
+
+Estas movimentações são destinadas a dar entradas em itens, tanto a partir de ordens de compra quanto lançamentos manuais para fins de atualização de inventário.
+Tendo as devidas permissões, estas movimentações são efetivadas logo em seguida ao seu cadastro, caso possuam os campos mínimos válidos para a realização da movimentação.
+
+*Saída de item*
+
+Estas movimentações são análogas as movimentações de entrada de estoque, porem são destinadas as saídas dos itens do estoque por quaisquer motivos.
+Assim como as movimentações de entrada, são efetivadas logo em seguida ao seu cadastro, entretanto, requerem que os itens/patrimônios com suas respectivas quantidades sejam válidos no momento da efetivação.
+
+*Entre estoques*
+
+Estas movimentações são mais complexas, sendo necessários passos a mais para que sejam de fato efetivadas.
+São destinadas à transferência de itens/patrimônios entre os mais diversos estoques disponíveis.
+
+A partir de uma requisição uma movimentação é criada contento estoque de origem e destino (de acordo com o tipo da movimentação), os itens a serem movimentados, patrimônios e suas respectivas quantidades; Neste momento, a movimentação é criada com o status de PENDENTE. Neste momento, é verificado a disponibilidade dos itens/patrimônios selecionados.
+Caso atenda aos requisitos, os itens da movimentação são bloqueados para a manipulação.
+
+Uma vez que a movimentação é salva, esta permanece como PENDENTE até que ocorra um cancelamento por parte do solicitante (funcionário o qual criou a movimentação), ou uma aprovação/rejeição (funcionário o qual avaliou a movimentação).
+
+- *Cancelamento*: enquanto a movimentação permanece com status de pendente, esta pode ser cancelada.
+Caso esta atitude seja tomada, a movimentação alterará seu status e todos os itens bloqueados serão liberados para manipulações;
+- *Rejeição*: análogamente ao cancelamento, quando uma movimentação for rejeitada, esta alterará seu status e todos os itens bloqueados serão liberados para manipulações;
+- *Aprovação*: quando uma movimentação é aprovada por um funcionário responsável, esta então é efetivada, dando baixa em todos os itens, finalizando o fluxo de movimentação.
+Somente após esta ação que os itens serão de fato transferidos entre os estoques.
+
+    Note que: O sistema de estoque foi projetado para trabalhar com o mínimo de acoplamento possível com sistemas externos, tais como Smartnet e o Compras, embora possua integração com eles. Entretanto, durante a integração foi necessário adicionar alguns dados tais como nome de clientes no processo de movimentações (em casos de Ordens de Serviço e devolução de materiais recolhidos) a fim de melhorar a experiência dos usuários do estoque, facilitando a identificação de movimentações.
+
+*Movimentações e Filiais*
+
+Após a adição de filiais ao sistema, movimentações podem ser feitas apenas entre estoques de uma mesma filial. Para se transferir itens entre filiais diferentes, é permitido apenas a transferência entre estoques do tipo *GALPÃO* e o usuário precisa possuir uma permissão específica associada a tal ação.
+
+Nos registros de movimentações, há uma filial associada para preservar o histórico. Por exemplo, um técnico A pode estar associado a uma filial em um determinado tempo realizando movimentações. Em algum momento, ele pode ser transferido para outra filial, entretanto, as movimentações anteriores ainda continuam relacionadas a filial anterior.
+
+Durante o cadastro das movimentações, caso a movimentação seja entre filiais distintas, o campo filial será nulo (único caso possível para este campo ser nulo). Caso contrário, o campo filial será igual à filial de um dos estoques (caso seja entrada/saída de estoque, será a mesma filial do estoque associado. Caso seja uma movimentação entre estoques, será considerado a filial de qualquer estoque - origem ou destino - uma vez que trata-se da mesma filial).
+
+*Movimentações relacionadas a Ordens de Serviço*
+
+É importante também ressaltar algumas regras de negócio que foram adicionadas juntamente com a evolução do sistema de forma a melhorar a integração entre os processos da empresa no que diz respeito a ordens de serviço e o controle de estoque.
+
+Desta forma, em movimentações realizadas *Técnico -> Cliente* e *Cliente -> Técnico* (movimentações diretamente relacionadas a *ordens de serviço*), são salvos também as informações do cliente e da ordem de serviço.
+Estas movimentações são criadas no momento em que um técnico cria uma solicitação de ativação, caso seja uma OS de instalação ou mudança de endereço, ou quando finaliza uma OS para os demais tipos de OS. Todas as movimentações criadas por ele são avaliadas pelos responsáveis pelo setor de suporte da empresa.
+Tendo isso em mente, é possível notar que na grande maioria dos casos, estas ações serão realizadas em outros sistemas e então propagadas para a presente API.
+
+- Ordem dos processos:
+.. Técnico informa os itens instalados/recolhidos durante o procedimento, criando assim movimentações de estoque;
+.. Um responsável pelo suporte analisa os itens e então aprova/rejeita os itens, efetivando as movimentações em caso de aprovação;
+.. Para os equipamentos recolhidos do cliente são geradas movimentação de devolução *Técnico -> Manutenção* automaticamente, desta forma, o técnico não poderia movimentar tais itens.
+(Tal ação é uma forma de evitar a utilização de equipamentos defeituosos sem uma avaliação técnica dos mesmos).
+
+    Note que: como trata-se de ações realizadas em sistemas externos e então propagadas para a API do Estoque, grande parte dos endpoints relacionados a estas ações terão prefixo '/basic', possuindo também um "- BASIC" no título da sessão.
+
+==== Find All By Description
+
+*Requisição*
+include::{snippets}/stock_moves_docs/find_all_by_description/http-request.adoc[]
+include::{snippets}/stock_moves_docs/find_all_by_description/request-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/stock_moves_docs/find_all_by_description/http-response.adoc[]
+include::{snippets}/stock_moves_docs/find_all_by_description/response-fields.adoc[]
+
+==== Find All Advanced
+
+Este endpoint foi desenvolvido de forma a fornecer uma maior flexibilidade aos clientes durante a pesquisa.
+Devido a isso, possui uma sintaxe diferente de forma a suportar diversas operações.
+
+    Sintaxe: search={nome do campo}{operador}{valor do filtro}
+
+===== Operadores
+
+* *:* Para comparações de forma igual;
+* *<* Para comparações de menor ou igual a;
+* *>* Para comparações de maior ou igual a;
+* *~* Para operações de string, de forma a pesquisar considerando as estratégias de *contains e case insensitive*;
+
+*Operações permitidas*
+
+* { type }{ : } { ENTRY_ITEM | BETWEEN_STOCKS | OUT_ITEM } -> filtra pelo tipo da movimentação
+
+* { requester }{ ~ }{ qualquer string } -> filtra pelo solicitante
+
+* { responsible }{ ~ }{ qualquer string } -> filtra pelo responsável pela aprovação
+
+* { id }{ : }{ qualquer número } -> filtra pelo código da movimentação
+
+* { createdDate }{ > | < }{ qualquer data no formato 'YYYY-MM-DD'' } -> filtra por um intervalo da data de criação da movimentação
+
+* { lastModifiedDate }{ > | < }{ qualquer data no formato 'YYYY-MM-DD'' } -> filtra por um intervalo da data da última atualização da movimentação. Caso seja uma movimentação aprovada, rejeitada ou cancelada, este campo conterá a data de tais ações. Caso contrário, conterá a data de criação da movimentação
+
+* { product }{ ~ }{ qualquer string } -> filtra pelo nome do produto
+
+* { status }{ : }{ qualquer constante de status válida } -> filtra pelo status da movimentação
+
+* { from }{ ~ }{ qualquer string } -> filtra pelo nome do estoque de origem
+
+* { to }{ ~ }{ qualquer string } -> filtra pelo nome do estoque de destino
+
+* { serviceOrder }{ : }{ qualquer string } -> filtra pelo código ID da ordem de serviço
+
+* { customer }{ ~ }{ qualquer string } -> filtra pelo nome do cliente associado durante uma ordem de serviço
+
+*Requisição*
+include::{snippets}/stock_moves_docs/find_all_advanced/http-request.adoc[]
+include::{snippets}/stock_moves_docs/find_all_advanced/request-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/stock_moves_docs/find_all_advanced/http-response.adoc[]
+include::{snippets}/stock_moves_docs/find_all_advanced/response-fields.adoc[]
+
+==== Find All Realized By Description
+
+*Requisição*
+include::{snippets}/stock_moves_docs/find_all_realized_by_description/http-request.adoc[]
+include::{snippets}/stock_moves_docs/find_all_realized_by_description/request-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/stock_moves_docs/find_all_realized_by_description/http-response.adoc[]
+include::{snippets}/stock_moves_docs/find_all_realized_by_description/response-fields.adoc[]
+
+==== Find All Pending By Description
+
+Pesquisa por todas as movimentações pendentes no momento.
+Caso o tipo seja especificado, serão filtradas as movimentações.
+Caso contrário, todas as movimentações pendentes serão retornadas de acordo com a descrição e paginação.
+
+*Requisição*
+include::{snippets}/stock_moves_docs/find_all_pending_by_description/http-request.adoc[]
+include::{snippets}/stock_moves_docs/find_all_pending_by_description/request-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/stock_moves_docs/find_all_pending_by_description/http-response.adoc[]
+include::{snippets}/stock_moves_docs/find_all_pending_by_description/response-fields.adoc[]
+
+==== Find All Pending By Stock From
+
+Pesquisa todas as movimentações pendentes considerando o estoque de origem igual ao estoque passado como parâmetro.
+
+*Requisição*
+include::{snippets}/stock_moves_docs/find_all_pending_by_stock_from/http-request.adoc[]
+include::{snippets}/stock_moves_docs/find_all_pending_by_stock_from/path-parameters.adoc[]
+include::{snippets}/stock_moves_docs/find_all_pending_by_stock_from/request-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/stock_moves_docs/find_all_pending_by_stock_from/http-response.adoc[]
+include::{snippets}/stock_moves_docs/find_all_pending_by_stock_from/response-fields.adoc[]
+
+==== Find All Pending By City Stock From (DEPRECIADO)
+
+Pesquisa todas as movimentações pendentes considerando o estoque de origem pertencente a cidade passada como parâmetro.
+Desta forma são englobados os estoques do tipo: Galpão, Manutenção, Obsoleto e Defeituosos.
+
+*Este endpoint será removido em futuras versões. Utilize Find All Pending By Stock Type From*.
+
+*Requisição*
+include::{snippets}/stock_moves_docs/find_all_pending_by_city_stock_from/http-request.adoc[]
+include::{snippets}/stock_moves_docs/find_all_pending_by_city_stock_from/path-parameters.adoc[]
+include::{snippets}/stock_moves_docs/find_all_pending_by_city_stock_from/request-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/stock_moves_docs/find_all_pending_by_city_stock_from/http-response.adoc[]
+include::{snippets}/stock_moves_docs/find_all_pending_by_city_stock_from/response-fields.adoc[]
+
+==== Find All Pending By City Stock To (DEPRECIADO)
+
+Pesquisa todas as movimentações pendentes considerando o estoque de destino pertencente a cidade passada como parâmetro.
+Desta forma são englobados os estoques do tipo: Galpão, Manutenção, Obsoleto e Defeituosos.
+
+*Este endpoint será removido em futuras versões. Utilize Find All Pending By Stock Type To*.
+
+*Requisição*
+include::{snippets}/stock_moves_docs/find_all_pending_by_city_stock_to/http-request.adoc[]
+include::{snippets}/stock_moves_docs/find_all_pending_by_city_stock_to/path-parameters.adoc[]
+include::{snippets}/stock_moves_docs/find_all_pending_by_city_stock_to/request-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/stock_moves_docs/find_all_pending_by_city_stock_to/http-response.adoc[]
+include::{snippets}/stock_moves_docs/find_all_pending_by_city_stock_to/response-fields.adoc[]
+
+==== Find All Pending By Stock Type From
+
+Pesquisa todas as movimentações pendentes considerando o estoque de origem está entre os tipos passados como parâmetro.
+
+*Requisição*
+include::{snippets}/stock_moves_docs/find_all_pending_by_stock_type_from/http-request.adoc[]
+include::{snippets}/stock_moves_docs/find_all_pending_by_stock_type_from/request-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/stock_moves_docs/find_all_pending_by_stock_type_from/http-response.adoc[]
+include::{snippets}/stock_moves_docs/find_all_pending_by_stock_type_from/response-fields.adoc[]
+
+==== Find All Pending By Stock Type To
+
+Pesquisa todas as movimentações pendentes considerando o estoque de destino está entre os tipos passados como parâmetro.
+
+*Requisição*
+include::{snippets}/stock_moves_docs/find_all_pending_by_stock_type_to/http-request.adoc[]
+include::{snippets}/stock_moves_docs/find_all_pending_by_stock_type_to/request-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/stock_moves_docs/find_all_pending_by_stock_type_to/http-response.adoc[]
+include::{snippets}/stock_moves_docs/find_all_pending_by_stock_type_to/response-fields.adoc[]
+
+==== Find All Pending By Stock To
+
+Pesquisa todas as movimentações pendentes considerando o estoque de destino igual ao estoque passado como parâmetro.
+
+*Requisição*
+include::{snippets}/stock_moves_docs/find_all_pending_by_stock_to/http-request.adoc[]
+include::{snippets}/stock_moves_docs/find_all_pending_by_stock_to/path-parameters.adoc[]
+include::{snippets}/stock_moves_docs/find_all_pending_by_stock_to/request-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/stock_moves_docs/find_all_pending_by_stock_to/http-response.adoc[]
+include::{snippets}/stock_moves_docs/find_all_pending_by_stock_to/response-fields.adoc[]
+
+==== Find By Id
+
+*Requisição*
+include::{snippets}/stock_moves_docs/find_by_id/http-request.adoc[]
+include::{snippets}/stock_moves_docs/find_by_id/path-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/stock_moves_docs/find_by_id/http-response.adoc[]
+include::{snippets}/stock_moves_docs/find_by_id/response-fields.adoc[]
+
+==== Insert
+
+*Requisição*
+include::{snippets}/stock_moves_docs/insert/http-request.adoc[]
+include::{snippets}/stock_moves_docs/insert/request-fields.adoc[]
+
+*Resposta*
+include::{snippets}/stock_moves_docs/insert/http-response.adoc[]
+include::{snippets}/stock_moves_docs/insert/response-fields.adoc[]
+
+==== Approve Move
+
+*Requisição*
+include::{snippets}/stock_moves_docs/approve_move/http-request.adoc[]
+include::{snippets}/stock_moves_docs/approve_move/path-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/stock_moves_docs/approve_move/http-response.adoc[]
+include::{snippets}/stock_moves_docs/approve_move/response-fields.adoc[]
+
+==== Approve Moves In Batch
+
+*Requisição*
+include::{snippets}/stock_moves_docs/approve_moves_in_batch/http-request.adoc[]
+include::{snippets}/stock_moves_docs/approve_moves_in_batch/request-fields.adoc[]
+
+*Resposta*
+include::{snippets}/stock_moves_docs/approve_moves_in_batch/http-response.adoc[]
+include::{snippets}/stock_moves_docs/approve_moves_in_batch/response-fields.adoc[]
+
+==== Reject Move
+
+*Requisição*
+include::{snippets}/stock_moves_docs/reject_move/http-request.adoc[]
+include::{snippets}/stock_moves_docs/reject_move/path-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/stock_moves_docs/reject_move/http-response.adoc[]
+include::{snippets}/stock_moves_docs/reject_move/response-fields.adoc[]
+
+==== Reject Moves In Batch
+
+*Requisição*
+include::{snippets}/stock_moves_docs/reject_moves_in_batch/http-request.adoc[]
+include::{snippets}/stock_moves_docs/reject_moves_in_batch/request-fields.adoc[]
+
+*Resposta*
+include::{snippets}/stock_moves_docs/reject_moves_in_batch/http-response.adoc[]
+include::{snippets}/stock_moves_docs/reject_moves_in_batch/response-fields.adoc[]
+
+==== Cancel Move
+
+*Requisição*
+include::{snippets}/stock_moves_docs/cancel_move/http-request.adoc[]
+include::{snippets}/stock_moves_docs/cancel_move/path-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/stock_moves_docs/cancel_move/http-response.adoc[]
+include::{snippets}/stock_moves_docs/cancel_move/response-fields.adoc[]
+
+==== Find All Realized By Description And Technician - BASIC
+
+Retorna todas as movimentações encontradas associadas a um técnico desejado.
+
+*Requisição*
+include::{snippets}/stock_moves_docs/basic_find_all_realized_by_description_and_technician/http-request.adoc[]
+include::{snippets}/stock_moves_docs/basic_find_all_realized_by_description_and_technician/path-parameters.adoc[]
+include::{snippets}/stock_moves_docs/basic_find_all_realized_by_description_and_technician/request-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/stock_moves_docs/basic_find_all_realized_by_description_and_technician/http-response.adoc[]
+include::{snippets}/stock_moves_docs/basic_find_all_realized_by_description_and_technician/response-fields.adoc[]
+
+==== Find All Pending By Stock From - BASIC
+
+Pesquisa todas as movimentações pendentes considerando o estoque de origem igual ao estoque passado como parâmetro.
+
+*Requisição*
+include::{snippets}/stock_moves_docs/basic_find_all_pending_by_stock_from/http-request.adoc[]
+include::{snippets}/stock_moves_docs/basic_find_all_pending_by_stock_from/path-parameters.adoc[]
+include::{snippets}/stock_moves_docs/basic_find_all_pending_by_stock_from/request-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/stock_moves_docs/basic_find_all_pending_by_stock_from/http-response.adoc[]
+include::{snippets}/stock_moves_docs/basic_find_all_pending_by_stock_from/response-fields.adoc[]
+
+==== Find All Pending By Stock To - BASIC
+
+Pesquisa todas as movimentações pendentes considerando o estoque de destino igual ao estoque passado como parâmetro.
+
+*Requisição*
+include::{snippets}/stock_moves_docs/basic_find_all_pending_by_stock_to/http-request.adoc[]
+include::{snippets}/stock_moves_docs/basic_find_all_pending_by_stock_to/path-parameters.adoc[]
+include::{snippets}/stock_moves_docs/basic_find_all_pending_by_stock_to/request-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/stock_moves_docs/basic_find_all_pending_by_stock_to/http-response.adoc[]
+include::{snippets}/stock_moves_docs/basic_find_all_pending_by_stock_to/response-fields.adoc[]
+
+==== Find By Id - BASIC
+
+*Requisição*
+include::{snippets}/stock_moves_docs/basic_find_by_id/http-request.adoc[]
+include::{snippets}/stock_moves_docs/basic_find_by_id/path-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/stock_moves_docs/basic_find_by_id/http-response.adoc[]
+include::{snippets}/stock_moves_docs/basic_find_by_id/response-fields.adoc[]
+
+==== Insert - BASIC
+
+*Requisição*
+include::{snippets}/stock_moves_docs/basic_insert/http-request.adoc[]
+include::{snippets}/stock_moves_docs/basic_insert/request-fields.adoc[]
+
+*Resposta*
+include::{snippets}/stock_moves_docs/basic_insert/http-response.adoc[]
+include::{snippets}/stock_moves_docs/basic_insert/response-fields.adoc[]
+
+==== Insert From Service Order - BASIC
+
+Movimentação gerada a partir da finalização de uma ordem de serviço.
+Embora sejam módulos separados, neste momento, este endpoint resulta na atualização/criação de cadastros de movimentações de estoque e movimentações de patrimônio simultaneamente.
+
+*Observações:*
+
+* Os tipos das ordens de serviço presentes na *requisição* são referentes ao Smartnet, logo, as opções são:
+
+** CR: Cancelamento / Recolhimento
+** I: Instalação
+** M: Mudança de Endereço
+** R: Reparo
+** SP: Segundo Ponto
+
+
+* Os tipos das ordens de serviço equivalentes utilizados no sistema do estoque seguem as relações abaixo:
+
+** INSTALLATION: Instalação
+** REPAIR: Reparo
+** CANCELLATION: Cancelamento / Recolhimento
+** ADDRESS_CHANGE: Mudança de Endereço
+** SECOND_POINT: Segundo Ponto
+
+* Todas as movimentações referentes a OS necessitarão de aprovação de um responsável para serem efetivadas.
+Além disso, uma vez efetivadas, todos os itens recolhidos dos clientes resultarão em movimentações partindo do *técnico responsável* para a *manutenção* imediatamente.
+Estas não poderão ser canceladas pelos técnicos.
+
+*Requisição*
+include::{snippets}/stock_moves_docs/basic_insert_from_service_order/http-request.adoc[]
+include::{snippets}/stock_moves_docs/basic_insert_from_service_order/request-fields.adoc[]
+
+*Resposta*
+include::{snippets}/stock_moves_docs/basic_insert_from_service_order/http-response.adoc[]
+include::{snippets}/stock_moves_docs/basic_insert_from_service_order/response-fields.adoc[]
+
+==== Approve Move - BASIC
+
+*Requisição*
+include::{snippets}/stock_moves_docs/basic_approve_move/http-request.adoc[]
+include::{snippets}/stock_moves_docs/basic_approve_move/path-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/stock_moves_docs/basic_approve_move/http-response.adoc[]
+include::{snippets}/stock_moves_docs/basic_approve_move/response-fields.adoc[]
+
+==== Approve All By External Order Id - BASIC
+
+Aprova todas as movimentações pendentes dado um Order ID.
+
+*Requisição*
+include::{snippets}/stock_moves_docs/basic_approve_all_by_external_order_id/http-request.adoc[]
+include::{snippets}/stock_moves_docs/basic_approve_all_by_external_order_id/path-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/stock_moves_docs/basic_approve_all_by_external_order_id/http-response.adoc[]
+include::{snippets}/stock_moves_docs/basic_approve_all_by_external_order_id/response-fields.adoc[]
+
+==== Reject Move - BASIC
+
+*Requisição*
+include::{snippets}/stock_moves_docs/basic_reject_move/http-request.adoc[]
+include::{snippets}/stock_moves_docs/basic_reject_move/path-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/stock_moves_docs/basic_reject_move/http-response.adoc[]
+include::{snippets}/stock_moves_docs/basic_reject_move/response-fields.adoc[]
+
+==== Reject All By External Order Id - BASIC
+
+Rejeita todas as movimentações pendentes dado um Order ID.
+
+*Requisição*
+include::{snippets}/stock_moves_docs/basic_reject_all_by_external_order_id/http-request.adoc[]
+include::{snippets}/stock_moves_docs/basic_reject_all_by_external_order_id/path-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/stock_moves_docs/basic_reject_all_by_external_order_id/http-response.adoc[]
+include::{snippets}/stock_moves_docs/basic_reject_all_by_external_order_id/response-fields.adoc[]
+
+==== Find All By Service Order Id - BASIC
+Retorna todas as movimentações dado um OrderId. O parâmetro "activation" é opcional. Caso ele seja informado, serão retornadas apenas a movimentções referentes a esta ativação. Caso seja nulo, todas as movimentações serão retornadas de acordo com o Order ID.
+
+*Requisição*
+include::{snippets}/stock_moves_docs/basic_find_all_by_service_order_id/http-request.adoc[]
+include::{snippets}/stock_moves_docs/basic_find_all_by_service_order_id/path-parameters.adoc[]
+include::{snippets}/stock_moves_docs/basic_find_all_by_service_order_id/request-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/stock_moves_docs/basic_find_all_by_service_order_id/http-response.adoc[]
+include::{snippets}/stock_moves_docs/basic_find_all_by_service_order_id/response-fields.adoc[]
+
+==== Find All Pending By Service Order Id - BASIC
+
+*Requisição*
+include::{snippets}/stock_moves_docs/basic_find_all_pending_by_service_order_id/http-request.adoc[]
+include::{snippets}/stock_moves_docs/basic_find_all_pending_by_service_order_id/path-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/stock_moves_docs/basic_find_all_pending_by_service_order_id/http-response.adoc[]
+include::{snippets}/stock_moves_docs/basic_find_all_pending_by_service_order_id/response-fields.adoc[]
+
+//============================================================
+=== Solicitações de movimentação
+
+Módulo relacionado às solicitações de movimentação.
+Uma solicitação consiste em uma estrutura muito similar a movimentação de estoque efetiva, entretanto, só é permitida *entre estoques de uma mesma filial*.
+
+O fluxo base consiste em:
+
+. Um usuário cria uma solicitação escolhendo o estoque de origem e de destino, bem como a relação entre item/quantidade necessários.
+
+. Está solicitação é encaminhada para a aprovação de um usuário (Este usuário deve ser o responsável pelo estoque de origem).
+Este possui a opção de aprovar ou rejeitar a solicitação.
+Caso a solicitação seja cancelada, nenhuma ação posterior é necessária.
+Nenhuma movimentação será registrada.
+Caso o usuário aprove a solicitação, uma movimentação é criada de acordo com a solicitação e é executada imediatamente, seguindo a estrutura já vigente, sendo o solicitante o usuário aprovador e o responsável sendo o usuário o qual criou a solicitação.
+
+    Note que: não é possível alterar uma solicitação após feita. É possível apenas cancelá-la, rejeitá-la ou aprová-la.
+
+Considerações:
+
+* From (Origem): de qual estoque sairá os itens solicitados.
+* To (Para): para qual estoque os itens serão movimentados.
+
+Exemplos:
+
+. O responsável pelo Galpão solicita que um técnico entregue 1 roteador X: o campo "from" será o estoque do técnico e o campo "to" será o estoque do Galpão.
+
+. Um técnico solicita materiais do galpão: o campo "from" será o estoque do Galpão e o campo "to" será o estoque do técnico.
+
+==== Find All
+
+Pesquisa todas as solicitações
+
+*Requisição*
+include::{snippets}/moves_request_docs/find_all/http-request.adoc[]
+include::{snippets}/moves_request_docs/find_all/request-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/moves_request_docs/find_all/http-response.adoc[]
+include::{snippets}/moves_request_docs/find_all/response-fields.adoc[]
+
+==== Find All Pending By City Stock To (DEPRECIADO)
+
+Pesquisa todas as solicitações filtrando pela cidade dos estoques de destino.
+(Em outras palavras, esta é uma forma de trazer todas as movimentações com destino ao Galpão físico).
+
+*Este endpoint será removido em breve. Utilize Find All Pending By Stock Type To*.
+
+*Requisição*
+include::{snippets}/moves_request_docs/find_all_pending_by_city_stock_to/http-request.adoc[]
+include::{snippets}/moves_request_docs/find_all_pending_by_city_stock_to/path-parameters.adoc[]
+include::{snippets}/moves_request_docs/find_all_pending_by_city_stock_to/request-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/moves_request_docs/find_all_pending_by_city_stock_to/http-response.adoc[]
+include::{snippets}/moves_request_docs/find_all_pending_by_city_stock_to/response-fields.adoc[]
+
+==== Find All Pending By City Stock From (DEPRECIADO)
+
+Pesquisa todas as solicitações filtrando pela cidade dos estoques de origem.
+(Em outras palavras, esta é uma forma de trazer todas as movimentações com origem no Galpão físico).
+
+*Este endpoint será removido em breve. Utilize Find All Pending By Stock Type From*.
+
+*Requisição*
+include::{snippets}/moves_request_docs/find_all_pending_by_city_stock_from/http-request.adoc[]
+include::{snippets}/moves_request_docs/find_all_pending_by_city_stock_from/path-parameters.adoc[]
+include::{snippets}/moves_request_docs/find_all_pending_by_city_stock_from/request-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/moves_request_docs/find_all_pending_by_city_stock_from/http-response.adoc[]
+include::{snippets}/moves_request_docs/find_all_pending_by_city_stock_from/response-fields.adoc[]
+
+
+==== Find All Pending By Stock Type From
+
+Pesquisa todas as solicitações filtrando pelo tipo do estoque de origem.
+
+*Requisição*
+include::{snippets}/moves_request_docs/find_all_pending_by_stock_type_from/http-request.adoc[]
+include::{snippets}/moves_request_docs/find_all_pending_by_stock_type_from/request-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/moves_request_docs/find_all_pending_by_stock_type_from/http-response.adoc[]
+include::{snippets}/moves_request_docs/find_all_pending_by_stock_type_from/response-fields.adoc[]
+
+
+==== Find All Pending By Stock Type To
+
+Pesquisa todas as solicitações filtrando pelo tipo do estoque de destino.
+
+*Requisição*
+include::{snippets}/moves_request_docs/find_all_pending_by_stock_type_to/http-request.adoc[]
+include::{snippets}/moves_request_docs/find_all_pending_by_stock_type_to/request-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/moves_request_docs/find_all_pending_by_stock_type_to/http-response.adoc[]
+include::{snippets}/moves_request_docs/find_all_pending_by_stock_type_to/response-fields.adoc[]
+
+==== Find By Id
+
+*Requisição*
+include::{snippets}/moves_request_docs/find_by_id/http-request.adoc[]
+include::{snippets}/moves_request_docs/find_by_id/path-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/moves_request_docs/find_by_id/http-response.adoc[]
+include::{snippets}/moves_request_docs/find_by_id/response-fields.adoc[]
+
+==== Insert
+
+*Requisição*
+include::{snippets}/moves_request_docs/insert/http-request.adoc[]
+include::{snippets}/moves_request_docs/insert/request-fields.adoc[]
+
+*Resposta*
+include::{snippets}/moves_request_docs/insert/http-response.adoc[]
+include::{snippets}/moves_request_docs/insert/response-fields.adoc[]
+
+==== Approve Move
+
+*Requisição*
+include::{snippets}/moves_request_docs/approve_request/http-request.adoc[]
+include::{snippets}/moves_request_docs/approve_request/path-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/moves_request_docs/approve_request/http-response.adoc[]
+include::{snippets}/moves_request_docs/approve_request/response-fields.adoc[]
+
+==== Reject Move
+
+*Requisição*
+include::{snippets}/moves_request_docs/reject_request/http-request.adoc[]
+include::{snippets}/moves_request_docs/reject_request/path-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/moves_request_docs/reject_request/http-response.adoc[]
+include::{snippets}/moves_request_docs/reject_request/response-fields.adoc[]
+
+==== Cancel Move
+
+*Requisição*
+include::{snippets}/moves_request_docs/cancel_request/http-request.adoc[]
+include::{snippets}/moves_request_docs/cancel_request/path-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/moves_request_docs/cancel_request/http-response.adoc[]
+include::{snippets}/moves_request_docs/cancel_request/response-fields.adoc[]
+
+==== Find All By Technician To - BASIC
+
+Pesquisa todas as solicitações cujo o destino seja o estoque do técnico pesquisado.
+
+*Requisição*
+include::{snippets}/moves_request_docs/basic_find_all_by_technician_to/http-request.adoc[]
+include::{snippets}/moves_request_docs/basic_find_all_by_technician_to/request-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/moves_request_docs/basic_find_all_by_technician_to/http-response.adoc[]
+include::{snippets}/moves_request_docs/basic_find_all_by_technician_to/response-fields.adoc[]
+
+==== Find All By Technician From - BASIC
+
+Pesquisa todas as solicitações cujo a origem seja o estoque do técnico pesquisado.
+
+*Requisição*
+include::{snippets}/moves_request_docs/basic_find_all_by_technician_from/http-request.adoc[]
+include::{snippets}/moves_request_docs/basic_find_all_by_technician_from/request-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/moves_request_docs/basic_find_all_by_technician_from/http-response.adoc[]
+include::{snippets}/moves_request_docs/basic_find_all_by_technician_from/response-fields.adoc[]
+
+==== Insert - BASIC
+
+*Requisição*
+include::{snippets}/moves_request_docs/basic_insert/http-request.adoc[]
+include::{snippets}/moves_request_docs/basic_insert/request-fields.adoc[]
+
+*Resposta*
+include::{snippets}/moves_request_docs/basic_insert/http-response.adoc[]
+include::{snippets}/moves_request_docs/basic_insert/response-fields.adoc[]
+
+==== Approve Move - BASIC
+
+*Requisição*
+include::{snippets}/moves_request_docs/basic_approve_request/http-request.adoc[]
+include::{snippets}/moves_request_docs/basic_approve_request/path-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/moves_request_docs/basic_approve_request/http-response.adoc[]
+include::{snippets}/moves_request_docs/basic_approve_request/response-fields.adoc[]
+
+==== Reject Move - BASIC
+
+*Requisição*
+include::{snippets}/moves_request_docs/basic_reject_request/http-request.adoc[]
+include::{snippets}/moves_request_docs/basic_reject_request/path-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/moves_request_docs/basic_reject_request/http-response.adoc[]
+include::{snippets}/moves_request_docs/basic_reject_request/response-fields.adoc[]
+
+
+//============================================================
+=== Agendamentos de movimentações
+
+Endpoints relacionados ao módulo de agendamentos de movimentações.
+Agendamentos funcionam basicamente como pre-cadastros de movimentações, apenas para prover uma maior facilidade durante planejamento para os usuários finais.
+Nenhum bloqueio e nem verificação de disponibilidade é previamente feita.
+
+Um agendamento pode ser executado de forma automática ou manual.
+Mesmo agendamentos cadastrados como automaticos podem ser executados manualmente previamente.
+
+A execução de um agendamento resulta em um cadastro de movimentação, tal qual o módulo de movimentos explicita e está sujeito as restrições lá aplicadas.
+
+    Note que só é permitido agendar movimentações entre estoques de uma mesma filial
+
+==== Find All Between
+
+*Requisição*
+include::{snippets}/scheduling_moves_docs/find_all_between/http-request.adoc[]
+include::{snippets}/scheduling_moves_docs/find_all_between/request-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/scheduling_moves_docs/find_all_between/http-response.adoc[]
+include::{snippets}/scheduling_moves_docs/find_all_between/response-fields.adoc[]
+
+==== Find By Id
+
+*Requisição*
+include::{snippets}/scheduling_moves_docs/find_by_id/http-request.adoc[]
+include::{snippets}/scheduling_moves_docs/find_by_id/path-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/scheduling_moves_docs/find_by_id/http-response.adoc[]
+include::{snippets}/scheduling_moves_docs/find_by_id/response-fields.adoc[]
+
+==== Find By Id With Current Quantity
+
+Retorna o agendamento procurado juntamente com a quantidade disponível em estoque para os respectivos itens da movimentação.
+
+*Requisição*
+include::{snippets}/scheduling_moves_docs/find_by_id_with_current_quantity/http-request.adoc[]
+include::{snippets}/scheduling_moves_docs/find_by_id_with_current_quantity/path-parameters.adoc[]
+include::{snippets}/scheduling_moves_docs/find_by_id_with_current_quantity/request-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/scheduling_moves_docs/find_by_id_with_current_quantity/http-response.adoc[]
+include::{snippets}/scheduling_moves_docs/find_by_id_with_current_quantity/response-fields.adoc[]
+
+==== Insert
+
+*Requisição*
+include::{snippets}/scheduling_moves_docs/insert/http-request.adoc[]
+include::{snippets}/scheduling_moves_docs/insert/request-fields.adoc[]
+
+*Resposta*
+include::{snippets}/scheduling_moves_docs/insert/http-response.adoc[]
+include::{snippets}/scheduling_moves_docs/insert/response-fields.adoc[]
+
+==== Update
+
+*Requisição*
+include::{snippets}/scheduling_moves_docs/update/http-request.adoc[]
+include::{snippets}/scheduling_moves_docs/update/request-fields.adoc[]
+
+*Resposta*
+include::{snippets}/scheduling_moves_docs/update/http-response.adoc[]
+include::{snippets}/scheduling_moves_docs/update/response-fields.adoc[]
+
+==== Execute Move
+
+*Requisição*
+include::{snippets}/scheduling_moves_docs/execute/http-request.adoc[]
+include::{snippets}/scheduling_moves_docs/execute/path-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/scheduling_moves_docs/execute/http-response.adoc[]
+include::{snippets}/scheduling_moves_docs/execute/response-fields.adoc[]
+
+==== Cancel
+
+*Requisição*
+include::{snippets}/scheduling_moves_docs/cancel/http-request.adoc[]
+include::{snippets}/scheduling_moves_docs/cancel/path-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/scheduling_moves_docs/cancel/http-response.adoc[]
+include::{snippets}/scheduling_moves_docs/cancel/response-fields.adoc[]
+
+
+//============================================================
+=== Localizações de Patrimônios
+
+Endpoints relacionados ao módulo de localização de patrimônio.
+Estas localizações não possuem nenhum vínculo com o estoque (estruturalmente falando).
+
+Observação: O campo "code" que aparece nas chamadas refere-se a um código único para identificação da localização de uma forma mais direta.
+Este código pode ser qualquer valor desde que seja único.
+Para facilitar pesquisas de localizações, este código está sendo utilizado considerando as seguintes regras:
+
+- Caso a localização represente um técnico ou cliente, este campo terá o valor do "userId";
+- Caso a localização represente um local do tipo galpão, manutenção, obsoleto ou defeituoso, este campo assumirá o valor correspondente ao ID, que é gerado de forma estática para estes registros;
+- Caso a localização represente uma loja, este código representará o ID da loja em questão;
+
+==== Find All
+
+*Requisição*
+include::{snippets}/patrimony_location_docs/find_all/http-request.adoc[]
+include::{snippets}/patrimony_location_docs/find_all/request-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/patrimony_location_docs/find_all/http-response.adoc[]
+include::{snippets}/patrimony_location_docs/find_all/response-fields.adoc[]
+
+==== Find By Id
+
+Pesquisa o registro pelo o id, gerado pelo banco de dados.
+
+*Requisição*
+include::{snippets}/patrimony_location_docs/find_by_id/http-request.adoc[]
+include::{snippets}/patrimony_location_docs/find_by_id/path-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/patrimony_location_docs/find_by_id/http-response.adoc[]
+include::{snippets}/patrimony_location_docs/find_by_id/response-fields.adoc[]
+
+==== Insert
+
+*Requisição*
+include::{snippets}/patrimony_location_docs/insert/http-request.adoc[]
+include::{snippets}/patrimony_location_docs/insert/request-fields.adoc[]
+
+*Resposta*
+include::{snippets}/patrimony_location_docs/insert/http-response.adoc[]
+include::{snippets}/patrimony_location_docs/insert/response-fields.adoc[]
+
+==== Update
+
+*Requisição*
+include::{snippets}/patrimony_location_docs/update/http-request.adoc[]
+include::{snippets}/patrimony_location_docs/update/path-parameters.adoc[]
+include::{snippets}/patrimony_location_docs/update/request-fields.adoc[]
+
+*Resposta*
+include::{snippets}/patrimony_location_docs/update/http-response.adoc[]
+include::{snippets}/patrimony_location_docs/update/response-fields.adoc[]
+
+==== Find All - BASIC
+
+*Requisição*
+include::{snippets}/patrimony_location_docs/basic_find_all/http-request.adoc[]
+include::{snippets}/patrimony_location_docs/basic_find_all/request-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/patrimony_location_docs/basic_find_all/http-response.adoc[]
+include::{snippets}/patrimony_location_docs/basic_find_all/response-fields.adoc[]
+
+//============================================================
+=== Valid Mac Addresses
+
+Endpoints relacionados ao módulo de MAC Addresses.
+Os dados são oriundos de exportação dos responsáveis.
+Todos os MACs ativos na rede representam todos os patrimônios da empresa os quais não foram catalogados inicialmente.
+Quando um novo patrimônio for inserido, o código dele deve estar nesta lista a menos que o usuário logado tenha a permissão de cadastrar novos patrimônios com códigos diversos.
+
+==== Find All Available
+
+*Requisição*
+include::{snippets}/valid_mac_address_docs/find_all_available/http-request.adoc[]
+include::{snippets}/valid_mac_address_docs/find_all_available/request-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/valid_mac_address_docs/find_all_available/http-response.adoc[]
+include::{snippets}/valid_mac_address_docs/find_all_available/response-fields.adoc[]
+
+==== Find All Available - BASIC
+
+*Requisição*
+include::{snippets}/valid_mac_address_docs/basic_find_all_available/http-request.adoc[]
+include::{snippets}/valid_mac_address_docs/basic_find_all_available/request-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/valid_mac_address_docs/basic_find_all_available/http-response.adoc[]
+include::{snippets}/valid_mac_address_docs/basic_find_all_available/response-fields.adoc[]
+
+==== Validate Address - BASIC
+
+*Requisição*
+include::{snippets}/valid_mac_address_docs/basic_validate_address/http-request.adoc[]
+include::{snippets}/valid_mac_address_docs/basic_validate_address/request-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/valid_mac_address_docs/basic_validate_address/http-response.adoc[]
+include::{snippets}/valid_mac_address_docs/basic_validate_address/response-fields.adoc[]
+
+
+//============================================================
+=== Templates
+
+Endpoints relacionados ao módulo de templates de movimentações.
+Foram desenvolvidos para prover uma maior produtividade aos usuários finais.
+
+==== Find All
+
+*Requisição*
+include::{snippets}/template_docs/find_all/http-request.adoc[]
+
+*Resposta*
+include::{snippets}/template_docs/find_all/http-response.adoc[]
+include::{snippets}/template_docs/find_all/response-fields.adoc[]
+
+==== Find By Id
+
+Pesquisa o registro pelo o id, gerado pelo banco de dados.
+
+*Requisição*
+include::{snippets}/template_docs/find_by_id/http-request.adoc[]
+include::{snippets}/template_docs/find_by_id/path-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/template_docs/find_by_id/http-response.adoc[]
+include::{snippets}/template_docs/find_by_id/response-fields.adoc[]
+
+==== Insert
+
+*Requisição*
+include::{snippets}/template_docs/insert/http-request.adoc[]
+include::{snippets}/template_docs/insert/request-fields.adoc[]
+
+*Resposta*
+include::{snippets}/template_docs/insert/http-response.adoc[]
+include::{snippets}/template_docs/insert/response-fields.adoc[]
+
+==== Update
+
+*Requisição*
+include::{snippets}/template_docs/update/http-request.adoc[]
+include::{snippets}/template_docs/update/path-parameters.adoc[]
+include::{snippets}/template_docs/update/request-fields.adoc[]
+
+*Resposta*
+include::{snippets}/template_docs/update/http-response.adoc[]
+include::{snippets}/template_docs/update/response-fields.adoc[]
+
+==== Delete By Id
+
+*Requisição*
+include::{snippets}/template_docs/delete_by_id/http-request.adoc[]
+include::{snippets}/template_docs/delete_by_id/path-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/template_docs/delete_by_id/http-response.adoc[]
+
+//=============================================================
+=== Técnicos
+
+Endpoitns relacionados ao módulo de técnicos.
+Técnicos aqui listados são cadastrados em sistemas externos e sendo apenas importados aqui através do Smartnet.
+Apenas um vínculo de setor é adicionado ao cadastro, sendo realizado manualmente.
+
+==== Find All Remote
+
+Apenas uma requisição simples de forma a disparar uma importação dos técnicos.
+Ao final do processo é retornado apenas um HTTP 2XX indicando o sucesso.
+
+*Requisição*
+include::{snippets}/technician_docs/find_all_remote/http-request.adoc[]
+
+*Resposta*
+include::{snippets}/technician_docs/find_all_remote/http-response.adoc[]
+
+==== Find All
+
+*Requisição*
+include::{snippets}/technician_docs/find_all/http-request.adoc[]
+
+*Resposta*
+include::{snippets}/technician_docs/find_all/http-response.adoc[]
+include::{snippets}/technician_docs/find_all/response-fields.adoc[]
+
+==== Find By Id
+
+*Requisição*
+
+include::{snippets}/technician_docs/find_by_id/http-request.adoc[]
+include::{snippets}/technician_docs/find_by_id/path-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/technician_docs/find_by_id/http-response.adoc[]
+include::{snippets}/technician_docs/find_by_id/response-fields.adoc[]
+
+==== Get Technician Schedule
+
+Note que: nenhuma das informações aqui retornadas são armazenadas na API do Estoque.
+Ou seja, para este endpoint, a API funciona de maneira similar a um "proxy" por exemplo.
+
+*Requisição*
+
+include::{snippets}/technician_docs/get_technician_schedule/http-request.adoc[]
+include::{snippets}/technician_docs/get_technician_schedule/path-parameters.adoc[]
+include::{snippets}/technician_docs/get_technician_schedule/request-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/technician_docs/get_technician_schedule/http-response.adoc[]
+include::{snippets}/technician_docs/get_technician_schedule/response-fields.adoc[]
+
+==== Update
+
+Atualiza o registro de um técnico associando-o a um setor específico. Note que: só é poossível alterar a filial de um técnico caso ele não possua nenhuma movimentação pendente associada a ele. Caso contrário, um erro será retornado.
+
+*Requisição*
+
+include::{snippets}/technician_docs/update/http-request.adoc[]
+include::{snippets}/technician_docs/update/path-parameters.adoc[]
+include::{snippets}/technician_docs/update/request-fields.adoc[]
+
+*Resposta*
+include::{snippets}/technician_docs/update/http-response.adoc[]
+include::{snippets}/technician_docs/update/response-fields.adoc[]
+
+
+
+//=============================================================
+=== Relacionamento entre setor dos Técnicos e Categorias de Produtos
+
+Endpoints relacionados ao relacionamento entre setor dos Técnicos e Categorias de Produtos.
+Este relacionamento se dá para a realização de filtros nos produtos de acordo com o setor do técnico em questão.
+
+Exemplo:
+
+* Suponha que um técnico seja de Instalação.
+* Instalação seja associada as categorias de Instalação/Reparo, Insumos e Ferramentas;
+
+Considerando o cenário acima, quando o técnico solicitar todos os produtos, estes serão filtrados pelas categorias de Instalação/Reparo, Insumos e Ferramentas (filtro sujeito ao endpoint associado).
+
+==== Find All
+
+*Requisição*
+
+include::{snippets}/technician_sector_product_category_docs/find_all/http-request.adoc[]
+
+*Resposta*
+include::{snippets}/technician_sector_product_category_docs/find_all/http-response.adoc[]
+include::{snippets}/technician_sector_product_category_docs/find_all/response-fields.adoc[]
+
+==== Find by Sector
+
+*Requisição*
+
+include::{snippets}/technician_sector_product_category_docs/find_by_sector/http-request.adoc[]
+include::{snippets}/technician_sector_product_category_docs/find_by_sector/path-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/technician_sector_product_category_docs/find_by_sector/http-response.adoc[]
+include::{snippets}/technician_sector_product_category_docs/find_by_sector/response-fields.adoc[]
+
+==== Update
+
+Atualiza as associações dado um setor
+
+*Requisição*
+
+include::{snippets}/technician_sector_product_category_docs/update/http-request.adoc[]
+include::{snippets}/technician_sector_product_category_docs/update/path-parameters.adoc[]
+include::{snippets}/technician_sector_product_category_docs/update/request-fields.adoc[]
+
+*Resposta*
+include::{snippets}/technician_sector_product_category_docs/update/http-response.adoc[]
+include::{snippets}/technician_sector_product_category_docs/update/response-fields.adoc[]
+
+
+
+//=============================================================
+
+=== Ordens de compra
+
+Endpoints relacionados ao módulo de ordens de compras.
+
+    Os registros são oriundos dos webhooks vindos da API de compras, sendo replicados aqui apenas para fins de produtividade para os usuários finais. Somente operações de pesquisa são implementadas aqui.
+
+==== Find All
+
+*Requisição*
+include::{snippets}/purchase_order_docs/find_all/http-request.adoc[]
+
+*Resposta*
+include::{snippets}/purchase_order_docs/find_all/http-response.adoc[]
+include::{snippets}/purchase_order_docs/find_all/response-fields.adoc[]
+
+==== Find By Id
+
+*Requisição*
+
+include::{snippets}/purchase_order_docs/find_by_id/path-parameters.adoc[]
+include::{snippets}/purchase_order_docs/find_by_id/http-request.adoc[]
+
+*Resposta*
+include::{snippets}/purchase_order_docs/find_by_id/http-response.adoc[]
+include::{snippets}/purchase_order_docs/find_by_id/response-fields.adoc[]
+
+==== Find All Items
+
+*Requisição*
+
+include::{snippets}/purchase_order_docs/find_all_items/request-parameters.adoc[]
+include::{snippets}/purchase_order_docs/find_all_items/http-request.adoc[]
+
+*Resposta*
+include::{snippets}/purchase_order_docs/find_all_items/http-response.adoc[]
+include::{snippets}/purchase_order_docs/find_all_items/response-fields.adoc[]
+
+==== Find By Id Filtering Pending Items
+
+*Requisição*
+
+include::{snippets}/purchase_order_docs/find_by_id/path-parameters.adoc[]
+include::{snippets}/purchase_order_docs/find_by_id/http-request.adoc[]
+
+*Resposta*
+include::{snippets}/purchase_order_docs/find_by_id/http-response.adoc[]
+include::{snippets}/purchase_order_docs/find_by_id/response-fields.adoc[]
+
+//=============================================================
+=== Produtos
+
+Endpoints relacionados ao módulo de produtos.
+
+    Os registros são oriundos dos webhooks vindos da API de compras, sendo replicados aqui apenas para fins de produtividade para os usuários finais. Somente operações de pesquisa são implementadas aqui.
+
+==== Find By Name Containing
+
+Pesquisa todos os produtos cujo nome contém a string passada pelos parâmetros
+
+*Requisição*
+include::{snippets}/products_docs/find_by_name_containing/http-request.adoc[]
+include::{snippets}/products_docs/find_by_name_containing/request-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/products_docs/find_by_name_containing/http-response.adoc[]
+include::{snippets}/products_docs/find_by_name_containing/response-fields.adoc[]
+
+==== Find By Id
+
+Pesquisa o registro pelo o id, gerado pelo banco de dados.
+
+*Requisição*
+include::{snippets}/products_docs/find_by_id/http-request.adoc[]
+include::{snippets}/products_docs/find_by_id/path-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/products_docs/find_by_id/http-response.adoc[]
+include::{snippets}/products_docs/find_by_id/response-fields.adoc[]
+
+==== Find By Code
+
+Pesquisa o registro pelo código do produto, como o código serial por exemplo
+
+*Requisição*
+include::{snippets}/products_docs/find_by_code/http-request.adoc[]
+include::{snippets}/products_docs/find_by_code/path-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/products_docs/find_by_code/http-response.adoc[]
+include::{snippets}/products_docs/find_by_code/response-fields.adoc[]
+
+==== Find By Name Containing - BASIC
+
+Pesquisa todos os produtos cujo nome contém a string passada pelos parâmetros
+
+*Requisição*
+include::{snippets}/products_docs/basic_find_by_name_containing/http-request.adoc[]
+include::{snippets}/products_docs/basic_find_by_name_containing/request-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/products_docs/basic_find_by_name_containing/http-response.adoc[]
+include::{snippets}/products_docs/basic_find_by_name_containing/response-fields.adoc[]
+
+==== Find By Name And Technicians Category - BASIC
+
+Pesquisa todos os produtos cujo nome contém a string passada pelos parâmetros, filtrando também pelas categorias de produtos associadas ao setor do técnico informado.
+
+*Requisição*
+include::{snippets}/products_docs/basic_find_by_name_and_technicians_category/http-request.adoc[]
+include::{snippets}/products_docs/basic_find_by_name_and_technicians_category/request-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/products_docs/basic_find_by_name_and_technicians_category/http-response.adoc[]
+include::{snippets}/products_docs/basic_find_by_name_and_technicians_category/response-fields.adoc[]
+
+==== Find By Id - BASIC
+
+Pesquisa o registro pelo o id, gerado pelo banco de dados.
+
+*Requisição*
+include::{snippets}/products_docs/basic_find_by_id/http-request.adoc[]
+include::{snippets}/products_docs/basic_find_by_id/path-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/products_docs/basic_find_by_id/http-response.adoc[]
+include::{snippets}/products_docs/basic_find_by_id/response-fields.adoc[]
+
+==== Find By Code - BASIC
+
+Pesquisa o registro pelo código do produto, como o código serial por exemplo
+
+*Requisição*
+include::{snippets}/products_docs/basic_find_by_code/http-request.adoc[]
+include::{snippets}/products_docs/basic_find_by_code/path-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/products_docs/basic_find_by_code/http-response.adoc[]
+include::{snippets}/products_docs/basic_find_by_code/response-fields.adoc[]
+
+//=========================================================
+=== Categorias de Produtos
+
+Endpoints relacionados ao cadastro de categorias de produtos, tornando-a campo parametrizado.
+
+    Os registros são oriundos dos webhooks vindos da API de compras, sendo replicados aqui apenas para fins de produtividade para os usuários finais. Somente operações de pesquisa são implementadas aqui.
+
+==== Find All
+
+*Requisição*
+include::{snippets}/product_category_docs/find_all/http-request.adoc[]
+
+*Resposta*
+include::{snippets}/product_category_docs/find_all/http-response.adoc[]
+include::{snippets}/product_category_docs/find_all/response-fields.adoc[]
+
+==== Find By Id
+
+Pesquisa o registro pelo o id, gerado pelo banco de dados.
+
+*Requisição*
+include::{snippets}/product_category_docs/find_by_id/http-request.adoc[]
+include::{snippets}/product_category_docs/find_by_id/path-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/product_category_docs/find_by_id/http-response.adoc[]
+include::{snippets}/product_category_docs/find_by_id/response-fields.adoc[]
+
+//==============================================================
+=== Unidades
+
+Endpoints relacionados ao módulo de unidades.
+
+Nota: o campo chamado "conversion" refere-se ao fator de conversão.
+Logo, para se converter da unidade A para B, deve se multiplicar a quantidade pelo fator de conversão.
+Exemplo:
+
+* m para cm: o fator de conversão deverá ser 100. Logo, para se converter 2m para cm, deve se realizar o cálculo:
+
+    2 (quantidade) x 100 (fator de conversão) = 200 (quantidade na respectiva unidade final)
+
+    Os registros são oriundos dos webhooks vindos da API de compras, sendo replicados aqui apenas para fins de produtividade para os usuários finais. Somente operações de pesquisa são implementadas aqui.
+
+==== Find All
+
+*Requisição*
+include::{snippets}/units_docs/find_all/http-request.adoc[]
+
+*Resposta*
+include::{snippets}/units_docs/find_all/http-response.adoc[]
+include::{snippets}/units_docs/find_all/response-fields.adoc[]
+
+==== Find By Id
+
+Pesquisa o registro pelo o id, gerado pelo banco de dados.
+
+*Requisição*
+include::{snippets}/units_docs/find_by_id/http-request.adoc[]
+include::{snippets}/units_docs/find_by_id/path-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/units_docs/find_by_id/http-response.adoc[]
+include::{snippets}/units_docs/find_by_id/response-fields.adoc[]
+
+//==================================================================
+
+=== Filiais
+
+Endpoints relacionados ao módulo de filiais.
+
+==== Find All
+
+*Requisição*
+include::{snippets}/branch_office_docs/find_all/http-request.adoc[]
+
+*Resposta*
+include::{snippets}/branch_office_docs/find_all/http-response.adoc[]
+include::{snippets}/branch_office_docs/find_all/response-fields.adoc[]
+
+==== Find All Available By Current Employee
+Retorna a lista de filiais associadas ao usuário logado.
+
+*Requisição*
+include::{snippets}/branch_office_docs/find_all_available_by_current_employee/http-request.adoc[]
+
+*Resposta*
+include::{snippets}/branch_office_docs/find_all_available_by_current_employee/http-response.adoc[]
+include::{snippets}/branch_office_docs/find_all_available_by_current_employee/response-fields.adoc[]
+
+==== Find By Id
+
+Pesquisa o registro pelo o id, gerado pelo banco de dados.
+
+*Requisição*
+include::{snippets}/branch_office_docs/find_by_id/http-request.adoc[]
+include::{snippets}/branch_office_docs/find_by_id/path-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/branch_office_docs/find_by_id/http-response.adoc[]
+include::{snippets}/branch_office_docs/find_by_id/response-fields.adoc[]
+
+
+//==================================================================
+
+=== Funcionários
+
+Endpoints relacionados ao módulo de funcionários.
+
+==== Find By Name
+
+*Requisição*
+include::{snippets}/employee_docs/find_by_name/http-request.adoc[]
+include::{snippets}/employee_docs/find_by_name/request-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/employee_docs/find_by_name/http-response.adoc[]
+include::{snippets}/employee_docs/find_by_name/response-fields.adoc[]
+
+==== Find By Name And Permissions
+
+*Requisição*
+include::{snippets}/employee_docs/find_by_name_and_permissions/http-request.adoc[]
+include::{snippets}/employee_docs/find_by_name_and_permissions/request-parameters.adoc[]
+include::{snippets}/employee_docs/find_by_name_and_permissions/path-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/employee_docs/find_by_name_and_permissions/http-response.adoc[]
+include::{snippets}/employee_docs/find_by_name_and_permissions/response-fields.adoc[]
+
+==== Find By Id
+
+Pesquisa o registro pelo o id, gerado pelo banco de dados.
+
+*Requisição*
+include::{snippets}/employee_docs/find_by_id/http-request.adoc[]
+include::{snippets}/employee_docs/find_by_id/path-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/employee_docs/find_by_id/http-response.adoc[]
+include::{snippets}/employee_docs/find_by_id/response-fields.adoc[]
+
+==== Update
+
+Atualiza o nome e permissões de acesso de um usuário dado um ID.
+
+*Requisição*
+include::{snippets}/employee_docs/update/http-request.adoc[]
+include::{snippets}/employee_docs/update/path-parameters.adoc[]
+include::{snippets}/employee_docs/update/request-body.adoc[]
+
+*Resposta*
+include::{snippets}/employee_docs/update/http-response.adoc[]
+include::{snippets}/employee_docs/update/response-fields.adoc[]
+
+//==================================================================
+=== Dashboard
+
+Esta sessão refere-se ao módulo de dashboard.
+Este consiste apenas em um endpoint o qual retorna dados predefinidos para fins de gerência.
+
+==== Get Data
+
+Retorna os dados do dashboard a partir de um intervalo de datas.
+
+*Requisição*
+include::{snippets}/dashboard_docs/get_data/http-request.adoc[]
+include::{snippets}/dashboard_docs/get_data/request-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/dashboard_docs/get_data/http-response.adoc[]
+include::{snippets}/dashboard_docs/get_data/response-fields.adoc[]
+
+==== Get Technicians Data
+
+Retorna os dados do dashboard a partir de um intervalo de datas considerando um técnico para filtros.
+
+*Requisição*
+include::{snippets}/dashboard_docs/get_technicians_data/http-request.adoc[]
+include::{snippets}/dashboard_docs/get_technicians_data/request-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/dashboard_docs/get_technicians_data/http-response.adoc[]
+include::{snippets}/dashboard_docs/get_technicians_data/response-fields.adoc[]
+
+==== Get General Technicians Data
+
+Retorna os dados do dashboard a partir de um intervalo de datas considerando todos os técnicos para filtros.
+
+*Requisição*
+include::{snippets}/dashboard_docs/get_general_technicians_data/http-request.adoc[]
+include::{snippets}/dashboard_docs/get_general_technicians_data/request-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/dashboard_docs/get_general_technicians_data/http-response.adoc[]
+include::{snippets}/dashboard_docs/get_general_technicians_data/response-fields.adoc[]
+
+//===========================================================
+=== Main Dashboard Item Groups
+
+Módulo relacionado aos grupos de itens principais para o Dashboard. A fim de personalizar a experiência dos usuários foi definido uma estrutura de grupos, onde cada grupo possui itens e funcionários associados.
+
+Quando um usuário está vinculado à algum grupo, serão exibidos no dashboard apenas os itens associados aos respectivos grupos. Caso contrário, será exibido os itens associados ao grupo Default.
+
+==== Find All
+
+*Requisição*
+include::{snippets}/main_dashboard_items_group_docs/find_all/http-request.adoc[]
+*Resposta*
+include::{snippets}/main_dashboard_items_group_docs/find_all/http-response.adoc[]
+include::{snippets}/main_dashboard_items_group_docs/find_all/response-fields.adoc[]
+
+==== Find By Id
+
+*Requisição*
+include::{snippets}/main_dashboard_items_group_docs/find_by_id/http-request.adoc[]
+*Resposta*
+include::{snippets}/main_dashboard_items_group_docs/find_by_id/http-response.adoc[]
+include::{snippets}/main_dashboard_items_group_docs/find_by_id/response-fields.adoc[]
+
+==== Insert
+
+*Requisição*
+include::{snippets}/main_dashboard_items_group_docs/insert/http-request.adoc[]
+include::{snippets}/main_dashboard_items_group_docs/insert/request-fields.adoc[]
+*Resposta*
+include::{snippets}/main_dashboard_items_group_docs/insert/http-response.adoc[]
+include::{snippets}/main_dashboard_items_group_docs/insert/response-fields.adoc[]
+
+
+
+==== Update
+
+*Requisição*
+include::{snippets}/main_dashboard_items_group_docs/update/http-request.adoc[]
+include::{snippets}/main_dashboard_items_group_docs/update/path-parameters.adoc[]
+include::{snippets}/main_dashboard_items_group_docs/update/request-fields.adoc[]
+*Resposta*
+include::{snippets}/main_dashboard_items_group_docs/update/http-response.adoc[]
+include::{snippets}/main_dashboard_items_group_docs/update/response-fields.adoc[]
+
+
+//===========================================================
+=== Endereços
+
+Esta sessão refere-se ao módulo de utilidade de busca por endereços.
+Este módulo executa uma consulta em API de terceiros, e tem apenas caráter de auxiliar os usuários finais no preenchimento e cadastro de endereços presentes nos cadastros de fornecedores (Endereço do fornecedor) e ordens de compra (Endereço de entrega).
+
+==== Find Address By Postal Code
+
+Pesquisa um endereço a partir de um CEP passado como parâmetro.
+Serviço sujeito a disponibilidade de terceiros.
+
+*Requisição*
+include::{snippets}/address_docs/find_address_by_postal_code/http-request.adoc[]
+include::{snippets}/address_docs/find_address_by_postal_code/request-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/address_docs/find_address_by_postal_code/http-response.adoc[]
+include::{snippets}/address_docs/find_address_by_postal_code/response-fields.adoc[]
+
+//====================================================================
+
+=== Notificações
+
+Um módulo de notificações foi adicionado a fim de melhorar a experiência dos usuários.
+Para este módulo foi implementado WebSockets de forma que os usuários sejam notificados em tempo real sobre determinados eventos.
+Para que um usuário consiga estabilizar uma conexão com o WebSocket, é necessário que o mesmo informe um *access token* (token utilizado na autenticação OAuth2) no header, sendo muito similar ao protocolo OAuth2 neste aspecto, autenticando assim o usuário.
+
+Cada usuário possui um tópico o qual recebe suas notificações.
+Todas as notificações relacionadas a ele serão enviadas no endpoint:
+
+    /topic/notifications/{ID_DO_USUARIO}
+
+Desta forma, um mesmo usuário receberá as mesmas notificações mesmo que esteja logado em diversos dispositivos ao mesmo tempo.
+
+    Mesmo solicitando um access token no momento da conexão, um possível problema de segurança relacionado ao WebSocket é o presente usuário manter a conexão ativa, mesmo após o access token ter se tornado invalido. Logo, para evitar que informações sensíveis trafeguem no Websocket, amenizando problemas tais como as citadas anteriormente, as mensagens são enviadas apenas contendo um JSON no formato: { notification: ID }. Desta forma, caso a aplicação deseje realmente mostrar maiores detalhes, é necessário realizar uma requisição HTTP tradicional.
+
+Todas as notificações são salvas e são associadas aos usuários de acordo com as permissões.
+Ou seja, para que um usuário receba uma notificação de um evento específico, ele precisa possuir uma permissão associada a notificação deste evento.
+Considerando também que notificações são algo pessoais dos usuários, todos os endpoints utilizam o usuário logado para retornar apenas as notificações relacionadas a eles.
+
+==== Find By Id
+
+Pesquisa a notificação pelo o id, gerado pelo banco de dados, independente do usuário logado.
+
+*Requisição*
+include::{snippets}/notification_docs/find_by_id/http-request.adoc[]
+include::{snippets}/notification_docs/find_by_id/path-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/notification_docs/find_by_id/http-response.adoc[]
+include::{snippets}/notification_docs/find_by_id/response-fields.adoc[]
+
+==== Find All By Current Employee
+
+Pesquisa todas as notificações relacionadas ao usuário logado.
+
+*Requisição*
+include::{snippets}/notification_docs/find_all_by_current_employee/http-request.adoc[]
+include::{snippets}/notification_docs/find_all_by_current_employee/request-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/notification_docs/find_all_by_current_employee/http-response.adoc[]
+include::{snippets}/notification_docs/find_all_by_current_employee/response-fields.adoc[]
+
+==== Find All Unread By Current Employee
+
+Pesquisa todas as notificações não lidas relacionadas ao usuário logado.
+
+*Requisição*
+include::{snippets}/notification_docs/find_all_unread_by_current_employee/http-request.adoc[]
+
+*Resposta*
+include::{snippets}/notification_docs/find_all_unread_by_current_employee/http-response.adoc[]
+include::{snippets}/notification_docs/find_all_unread_by_current_employee/response-fields.adoc[]
+
+==== Mark As Viewed
+
+Marca uma notificação como visualizada pelo usuário logado.
+
+*Requisição*
+include::{snippets}/notification_docs/mark_as_viewed/http-request.adoc[]
+include::{snippets}/notification_docs/mark_as_viewed/path-parameters.adoc[]
+
+*Resposta*
+include::{snippets}/notification_docs/mark_as_viewed/http-response.adoc[]
+include::{snippets}/notification_docs/mark_as_viewed/response-fields.adoc[]
+
+==== Mark All As Viewed
+
+Marca uma lista de notificações como visualizadas pelo usuário logado.
+
+*Requisição*
+include::{snippets}/notification_docs/mark_all_as_viewed/http-request.adoc[]
+include::{snippets}/notification_docs/mark_all_as_viewed/request-fields.adoc[]
+
+*Resposta*
+include::{snippets}/notification_docs/mark_all_as_viewed/http-response.adoc[]
+include::{snippets}/notification_docs/mark_all_as_viewed/response-fields.adoc[]
+
+
+//====================================================================
+
+=== Webhooks
+
+Para a integração entre diferentes APIs, principalmente entre Estoque e Compras, foi criado uma interface de Webhook, a qual consiste no seguinte fluxo:
+
+. Um evento ocorre em uma API. Esta, por sua vez, precisa informar todas as outras as quais dependem de tal informação;
+. A API onde ocorreu o evento envia então requisições HTTP para as demais cujo devem ser notificadas;
+. A API a qual recebe este Webhook valida a informação de acordo com os dados passados e por fim, responde com um status HTTP apropriado de acordo com a aceitação do webhook.
+
+Uma vez ententido este fluxo, é possível explicar as especificidades da implementação adotada:
+
+==== Implementação
+
+Nesta API, existe apenas um endpoint para receber webhooks.
+Trata-se de uma interface que recebe requisições HTTP POST no endpoint /webhooks.
+Este endpoint é publico (não utiliza o protocolo OAuth2 ou Basic), entretanto, possui sua própria forma de validação das informações através de um Header chamado *Signature*.
+Este header é obrigatório e tem como objetivo validar ou não um webhook enviado.
+
+A validação do cabeçalho *Signature* ocorre da seguinte maneira:
+
+  SHA256 ( {nome da api de origem}.{nome do evento}.{chave unica da API de origem} )
+
+onde:
+
+- Nome da api de origem: consiste em strings (constantes), sendo: PURCHASE_API,STOCK_API ou SMARTNET_API;
+
+- Nome do evento: consiste em strings (constantes), sendo: PURCHASE_API_SAVE_PRODUCT, PURCHASE_API_SAVE_PURCHASE_ORDER, entre outros.
+Caso sejam criados novos, opte por manter a estrutura de {nome aplicação}_{nome do evento};
+
+- Chave unica da API de origem: consiste em uma chave privada.
+Cada API possui a sua respectiva chave e esta é compartilhada com as demais.
+
+Após a concatenação entre as informações, um algoritmo de SHA256 é aplicado nesta String gerada.
+
+Para realizar a validação do webhook, a API de destino deve gerar a *Signature* correspondente de acordo com as informações do Webhook recebido e então comparar com a Signature enviada.
+Caso sejam iguais, trata-se de um webhook válido.
+
+==== On Save Category - Receive
+
+Emitido pela API de compras, quando uma nova categoria é salva.
+
+*Requisição*
+include::{snippets}/webhook_docs/web_hook_receive_category/http-request.adoc[]
+include::{snippets}/webhook_docs/web_hook_receive_category/request-fields.adoc[]
+
+*Resposta*
+include::{snippets}/webhook_docs/web_hook_receive_category/http-response.adoc[]
+
+==== On Save Unit - Receive
+
+Emitido pela API de compras, quando uma nova unidade é salva.
+
+    Note que: pela estrutura dos registros de unidade (se assemelham a um grafo não orientado), é necessário informar também todas as unidades associadas para que o registro se conclua de forma satisfatória. Entretanto, estas unidades devem ser informadas na ordem correta para que: quando uma unidade A for cadastrada e possuir uma conversão para a unidade B, esta unidade B já existir no sistema, evitando cadastrar conversões entre unidades inexistentes.
+
+*Requisição*
+include::{snippets}/webhook_docs/web_hook_receive_unit/http-request.adoc[]
+include::{snippets}/webhook_docs/web_hook_receive_unit/request-fields.adoc[]
+
+*Resposta*
+include::{snippets}/webhook_docs/web_hook_receive_unit/http-response.adoc[]
+
+==== On Save Product - Receive
+
+Emitido pela API de compras, quando um novo produto é salvo.
+
+*Requisição*
+include::{snippets}/webhook_docs/web_hook_receive_product/http-request.adoc[]
+include::{snippets}/webhook_docs/web_hook_receive_product/request-fields.adoc[]
+
+*Resposta*
+include::{snippets}/webhook_docs/web_hook_receive_product/http-response.adoc[]
+
+==== On Save Purchas Order - Receive
+
+Emitido pela API de compras, quando uma ordem de compra é salva.
+
+    Note que: além da ordem de compra, todas as informações sobre produtos, unidades e categorias as quais possuem quaisquer vinculos com os registros presentes na ordem de compra são enviadas. Trata-se de um webhook bastante extenso, mas isso se da em virtude do volume de informações necessárias as quais não podem ser enviadas de forma assíncrona (Não é possível enviar webhook separados para cada tipo: unidade, categoria ou produto, principalmente por não haver garantias na ordem de envio e muito menos no recebimento das informações).
+
+*Requisição*
+include::{snippets}/webhook_docs/web_hook_receive_purchase_order/http-request.adoc[]
+include::{snippets}/webhook_docs/web_hook_receive_purchase_order/request-fields.adoc[]
+
+*Resposta*
+include::{snippets}/webhook_docs/web_hook_receive_purchase_order/http-response.adoc[]
+
+
+//====================================================================
+=== Erros globais da aplicação
+
+Esta sessão tem como objetivo evidenciar os formatos comuns de erros durante as requisições
+
+==== 400 - Bad Request
+
+include::{snippets}/error_handler_docs/bad_request/http-response.adoc[]
+
+==== 401 - Unauthorized
+
+include::{snippets}/error_handler_docs/unauthenticated/http-response.adoc[]
+include::{snippets}/error_handler_docs/unauthenticated/response-fields.adoc[]
+
+==== 403 - Forbidden
+
+include::{snippets}/error_handler_docs/forbidden/http-response.adoc[]
+
+==== 404 - Not Found
+
+include::{snippets}/error_handler_docs/not_found/http-response.adoc[]
+include::{snippets}/error_handler_docs/not_found/response-fields.adoc[]
+
+==== 500 - Internal Server Error
+
+include::{snippets}/error_handler_docs/internal_server_error/http-response.adoc[]
+include::{snippets}/error_handler_docs/internal_server_error/response-fields.adoc[]

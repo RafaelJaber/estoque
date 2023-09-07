@@ -1,0 +1,353 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<nfeProc xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00">
+    <NFe xmlns="http://www.portalfiscal.inf.br/nfe">
+        <infNFe Id="NFe31191217281973001200550010001310881009091312" versao="4.00">
+            <ide>
+                <cUF>31</cUF>
+                <cNF>00909131</cNF>
+                <natOp>VENDA MERC ADQ TERC</natOp>
+                <mod>55</mod>
+                <serie>1</serie>
+                <nNF>131088</nNF>
+                <dhEmi>2019-12-20T16:36:00-03:00</dhEmi>
+                <dhSaiEnt>2019-12-20T16:36:00-03:00</dhSaiEnt>
+                <tpNF>1</tpNF>
+                <idDest>1</idDest>
+                <cMunFG>3131307</cMunFG>
+                <tpImp>1</tpImp>
+                <tpEmis>1</tpEmis>
+                <cDV>2</cDV>
+                <tpAmb>1</tpAmb>
+                <finNFe>1</finNFe>
+                <indFinal>0</indFinal>
+                <indPres>9</indPres>
+                <procEmi>0</procEmi>
+                <verProc>12.1.017 | 2.0</verProc>
+            </ide>
+            <emit>
+                <CNPJ>17281973001200</CNPJ>
+                <xNome>COFERMETA S.A.</xNome>
+                <xFant>IPATINGA</xFant>
+                <enderEmit>
+                    <xLgr>AV. BRASIL</xLgr>
+                    <nro>90</nro>
+                    <xBairro>IGUACU</xBairro>
+                    <cMun>3131307</cMun>
+                    <xMun>IPATINGA</xMun>
+                    <UF>MG</UF>
+                    <CEP>35162036</CEP>
+                    <cPais>1058</cPais>
+                    <xPais>BRASIL</xPais>
+                    <fone>3138296944</fone>
+                </enderEmit>
+                <IE>3130010611100</IE>
+                <CRT>3</CRT>
+            </emit>
+            <dest>
+                <CNPJ>24343041000149</CNPJ>
+                <xNome>GIGANET DATA CENTER SOLUCOES EM COMUNICACAO EIRELI</xNome>
+                <enderDest>
+                    <xLgr>RUA VINHATICO</xLgr>
+                    <nro>15</nro>
+                    <xCpl>SL 1106</xCpl>
+                    <xBairro>HORTO</xBairro>
+                    <cMun>3131307</cMun>
+                    <xMun>IPATINGA</xMun>
+                    <UF>MG</UF>
+                    <CEP>35160317</CEP>
+                    <cPais>1058</cPais>
+                    <xPais>BRASIL</xPais>
+                    <fone>3138226767</fone>
+                </enderDest>
+                <indIEDest>1</indIEDest>
+                <IE>0027194500078</IE>
+                <email>contasapagar@giganet.psi.br</email>
+            </dest>
+            <det nItem="1">
+                <prod>
+                    <cProd>FE502201</cProd>
+                    <cEAN>SEM GTIN</cEAN>
+                    <xProd>FITA DUPLA-FACE 19MM X 1,5M DISMA</xProd>
+                    <NCM>39191010</NCM>
+                    <CEST>1000800</CEST>
+                    <CFOP>5405</CFOP>
+                    <uCom>RL</uCom>
+                    <qCom>10.0000</qCom>
+                    <vUnCom>3.74000000</vUnCom>
+                    <vProd>37.40</vProd>
+                    <cEANTrib>SEM GTIN</cEANTrib>
+                    <uTrib>RL</uTrib>
+                    <qTrib>10.0000</qTrib>
+                    <vUnTrib>3.74000000</vUnTrib>
+                    <indTot>1</indTot>
+                    <xPed>0</xPed>
+                    <nItemPed>0</nItemPed>
+                </prod>
+                <imposto>
+                    <ICMS>
+                        <ICMS60>
+                            <orig>2</orig>
+                            <CST>60</CST>
+                            <vBCSTRet>34.29</vBCSTRet>
+                            <pST>18.0000</pST>
+                            <vICMSSubstituto>0</vICMSSubstituto>
+                            <vICMSSTRet>6.17</vICMSSTRet>
+                        </ICMS60>
+                    </ICMS>
+                    <IPI>
+                        <cEnq>999</cEnq>
+                        <IPITrib>
+                            <CST>99</CST>
+                            <vBC>0</vBC>
+                            <pIPI>0</pIPI>
+                            <vIPI>0</vIPI>
+                        </IPITrib>
+                    </IPI>
+                    <PIS>
+                        <PISAliq>
+                            <CST>01</CST>
+                            <vBC>37.40</vBC>
+                            <pPIS>1.6500</pPIS>
+                            <vPIS>0.61</vPIS>
+                        </PISAliq>
+                    </PIS>
+                    <COFINS>
+                        <COFINSAliq>
+                            <CST>01</CST>
+                            <vBC>37.40</vBC>
+                            <pCOFINS>7.6000</pCOFINS>
+                            <vCOFINS>2.84</vCOFINS>
+                        </COFINSAliq>
+                    </COFINS>
+                </imposto>
+            </det>
+            <det nItem="2">
+                <prod>
+                    <cProd>FE400348</cProd>
+                    <cEAN>SEM GTIN</cEAN>
+                    <xProd>LAMINA P/FACA 18MM C/10PCS VONDER</xProd>
+                    <NCM>82119400</NCM>
+                    <CEST>0801700</CEST>
+                    <CFOP>5405</CFOP>
+                    <uCom>CT</uCom>
+                    <qCom>2.0000</qCom>
+                    <vUnCom>8.21000000</vUnCom>
+                    <vProd>16.42</vProd>
+                    <cEANTrib>SEM GTIN</cEANTrib>
+                    <uTrib>CT</uTrib>
+                    <qTrib>2.0000</qTrib>
+                    <vUnTrib>8.21000000</vUnTrib>
+                    <indTot>1</indTot>
+                    <xPed>0</xPed>
+                    <nItemPed>0</nItemPed>
+                </prod>
+                <imposto>
+                    <ICMS>
+                        <ICMS60>
+                            <orig>2</orig>
+                            <CST>60</CST>
+                            <vBCSTRet>9.04</vBCSTRet>
+                            <pST>18.0000</pST>
+                            <vICMSSubstituto>0</vICMSSubstituto>
+                            <vICMSSTRet>1.63</vICMSSTRet>
+                        </ICMS60>
+                    </ICMS>
+                    <IPI>
+                        <cEnq>999</cEnq>
+                        <IPITrib>
+                            <CST>99</CST>
+                            <vBC>0</vBC>
+                            <pIPI>0</pIPI>
+                            <vIPI>0</vIPI>
+                        </IPITrib>
+                    </IPI>
+                    <PIS>
+                        <PISAliq>
+                            <CST>01</CST>
+                            <vBC>16.42</vBC>
+                            <pPIS>1.6500</pPIS>
+                            <vPIS>0.27</vPIS>
+                        </PISAliq>
+                    </PIS>
+                    <COFINS>
+                        <COFINSAliq>
+                            <CST>01</CST>
+                            <vBC>16.42</vBC>
+                            <pCOFINS>7.6000</pCOFINS>
+                            <vCOFINS>1.24</vCOFINS>
+                        </COFINSAliq>
+                    </COFINS>
+                </imposto>
+            </det>
+            <det nItem="3">
+                <prod>
+                    <cProd>FE045052</cProd>
+                    <cEAN>SEM GTIN</cEAN>
+                    <xProd>TESOURA T/AVIACAO RETA 14-563BD STANLEY</xProd>
+                    <NCM>82033000</NCM>
+                    <CEST>0800800</CEST>
+                    <CFOP>5405</CFOP>
+                    <uCom>PC</uCom>
+                    <qCom>1.0000</qCom>
+                    <vUnCom>75.59000000</vUnCom>
+                    <vProd>75.59</vProd>
+                    <cEANTrib>SEM GTIN</cEANTrib>
+                    <uTrib>PC</uTrib>
+                    <qTrib>1.0000</qTrib>
+                    <vUnTrib>75.59000000</vUnTrib>
+                    <indTot>1</indTot>
+                    <xPed>0</xPed>
+                    <nItemPed>0</nItemPed>
+                </prod>
+                <imposto>
+                    <ICMS>
+                        <ICMS60>
+                            <orig>2</orig>
+                            <CST>60</CST>
+                            <vBCSTRet>68.22</vBCSTRet>
+                            <pST>18.0000</pST>
+                            <vICMSSubstituto>0</vICMSSubstituto>
+                            <vICMSSTRet>12.28</vICMSSTRet>
+                        </ICMS60>
+                    </ICMS>
+                    <IPI>
+                        <cEnq>999</cEnq>
+                        <IPITrib>
+                            <CST>99</CST>
+                            <vBC>0</vBC>
+                            <pIPI>0</pIPI>
+                            <vIPI>0</vIPI>
+                        </IPITrib>
+                    </IPI>
+                    <PIS>
+                        <PISAliq>
+                            <CST>01</CST>
+                            <vBC>75.59</vBC>
+                            <pPIS>1.6500</pPIS>
+                            <vPIS>1.24</vPIS>
+                        </PISAliq>
+                    </PIS>
+                    <COFINS>
+                        <COFINSAliq>
+                            <CST>01</CST>
+                            <vBC>75.59</vBC>
+                            <pCOFINS>7.6000</pCOFINS>
+                            <vCOFINS>5.74</vCOFINS>
+                        </COFINSAliq>
+                    </COFINS>
+                </imposto>
+            </det>
+            <total>
+                <ICMSTot>
+                    <vBC>0</vBC>
+                    <vICMS>0</vICMS>
+                    <vICMSDeson>0</vICMSDeson>
+                    <vFCPUFDest>0</vFCPUFDest>
+                    <vICMSUFDest>0</vICMSUFDest>
+                    <vICMSUFRemet>0</vICMSUFRemet>
+                    <vFCP>0</vFCP>
+                    <vBCST>0</vBCST>
+                    <vST>0</vST>
+                    <vFCPST>0</vFCPST>
+                    <vFCPSTRet>0</vFCPSTRet>
+                    <vProd>129.41</vProd>
+                    <vFrete>0</vFrete>
+                    <vSeg>0</vSeg>
+                    <vDesc>0</vDesc>
+                    <vII>0</vII>
+                    <vIPI>0</vIPI>
+                    <vIPIDevol>0</vIPIDevol>
+                    <vPIS>2.12</vPIS>
+                    <vCOFINS>9.82</vCOFINS>
+                    <vOutro>0</vOutro>
+                    <vNF>129.41</vNF>
+                </ICMSTot>
+            </total>
+            <transp>
+                <modFrete>3</modFrete>
+                <vol>
+                    <qVol>1</qVol>
+                    <esp>VOLUME</esp>
+                    <pesoL>0.680</pesoL>
+                    <pesoB>0.680</pesoB>
+                </vol>
+            </transp>
+            <cobr>
+                <fat>
+                    <nFat>1000131088</nFat>
+                    <vOrig>129.41</vOrig>
+                    <vDesc>0</vDesc>
+                    <vLiq>129.41</vLiq>
+                </fat>
+                <dup>
+                    <nDup>001</nDup>
+                    <dVenc>2020-01-19</dVenc>
+                    <vDup>129.41</vDup>
+                </dup>
+            </cobr>
+            <pag>
+                <detPag>
+                    <indPag>1</indPag>
+                    <tPag>15</tPag>
+                    <vPag>129.41</vPag>
+                </detPag>
+            </pag>
+            <infAdic>
+                <infAdFisco>Imposto Recolhido por Substituicao - ICMS retido pelo cliente S.T. DECRETO 43708 19/12/2009.
+                    Valor da Base de ST: R$ 34.29. Valor de ICMS ST: R$ 6.17. Valor de ICMS: R$0.00. Imposto Recolhido
+                    por Substituicao - ICMS retido pelo cliente S.T. DECRETO 43708 19/12/2009. Valor da Base de ST: R$
+                    9.04. Valor de ICMS ST: R$ 1.63. Valor de ICMS: R$0.00. Imposto Recolhido por Substituicao - ICMS
+                    retido pelo cliente S.T. DECRETO 43708 19/12/2009. Valor da Base de ST: R$ 68.22. Valor de ICMS ST:
+                    R$ 12.28. Valor de ICMS: R$0.00.
+                </infAdFisco>
+                <infCpl>SUBST.TRIB.CONF.ANEXO XV PARTE 02 ITEM 10 DEC 43080/MG - MATERIAL SUBST.TRIB.CONF.ANEXO XV PARTE
+                    02 ITEM 08 DEC 43080/MG - FERRAMEN. Base Subst.Trib.: 111.56 Aliq.: 18.000% Vr.ICMS.: 20.08Vend.:
+                    1448 VINICIUS Seu Pedido : email Fernanda. Sep.: 2751 RICHARD Nosso Pedido: 00051 601098
+                </infCpl>
+            </infAdic>
+            <infRespTec>
+                <CNPJ>53113791000122</CNPJ>
+                <xContato>Rodrigo de Almeida Sartorio</xContato>
+                <email>resp_tecnico_dfe_protheus@totvs.com.br</email>
+                <fone>28591383</fone>
+            </infRespTec>
+        </infNFe>
+        <Signature xmlns="http://www.w3.org/2000/09/xmldsig#">
+            <SignedInfo xmlns="http://www.w3.org/2000/09/xmldsig#">
+                <CanonicalizationMethod
+                        Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"></CanonicalizationMethod>
+                <SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1"></SignatureMethod>
+                <Reference URI="#NFe31191217281973001200550010001310881009091312">
+                    <Transforms>
+                        <Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"></Transform>
+                        <Transform Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"></Transform>
+                    </Transforms>
+                    <DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"></DigestMethod>
+                    <DigestValue>sOuqpxEq1OpaUF9H+3jbR6PSeD8=</DigestValue>
+                </Reference>
+            </SignedInfo>
+            <SignatureValue>
+                PBUIx44cCQQu0hDytaAof77bbl7h7pXrkYzVfoVwYnuAZqgsMTX/KyUohqcePC2IvhtuYiqbW17bVZ1gYfRagvBkNrA+mRoRWXfLo5Hcu0Mh3RVdfAJnyEOZrx0QmuM2Ikr2/xBaES8MFsdPPLYrBTjyov0rSezUR0lO1VaAaeoFEO7JyFT5cCExDPeuDOa/zBmMiFCYpg3PESweepGzQpDqdtjlFfsb9lRrwLV9WiZEGkaREWCzXnT2IOCoB8W3gwD22b63UTB5PsqOnSp6ON3PQJ4C8R2is/HnU+plghxTFC+/0mzSOWCDBbfUd0n91CPE72e6ALHcEwgJ+kCWEw==
+            </SignatureValue>
+            <KeyInfo>
+                <X509Data>
+                    <X509Certificate>
+                        MIIHyjCCBbKgAwIBAgIIWGsZCSVOXRwwDQYJKoZIhvcNAQELBQAwgYkxCzAJBgNVBAYTAkJSMRMwEQYDVQQKEwpJQ1AtQnJhc2lsMTQwMgYDVQQLEytBdXRvcmlkYWRlIENlcnRpZmljYWRvcmEgUmFpeiBCcmFzaWxlaXJhIHYyMRIwEAYDVQQLEwlBQyBTT0xVVEkxGzAZBgNVBAMTEkFDIFNPTFVUSSBNdWx0aXBsYTAeFw0xOTEwMDcxNDIzMTFaFw0yMDEwMDExMzE1MDBaMIHkMQswCQYDVQQGEwJCUjETMBEGA1UEChMKSUNQLUJyYXNpbDE0MDIGA1UECxMrQXV0b3JpZGFkZSBDZXJ0aWZpY2Fkb3JhIFJhaXogQnJhc2lsZWlyYSB2MjESMBAGA1UECxMJQUMgU09MVVRJMRswGQYDVQQLExJBQyBTT0xVVEkgTXVsdGlwbGExFzAVBgNVBAsTDjI0NzgzMzI5MDAwMTM0MRowGAYDVQQLExFDZXJ0aWZpY2FkbyBQSiBBMTEkMCIGA1UEAxMbQ09GRVJNRVRBIFNBOjE3MjgxOTczMDAwMTQ5MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAlzodvktFvwkjyFv5XTF9PcOpQIXVezGwJaLahLUR0Gg7v0uJrCVcJAxkkcNw5LeozbSfQywFR9fjObCFkE2Vb1q2pwVGJjkc9imBU7y3nyZzCRxrMYG6oRCz8Al4SdT0OW1bMQJaVVK94AVirWoT1NvJjAlGAxwgTZgxgh7e4HvJzDhlfNygQteFCYyNb13yGewEBTRp8FHYg7C+mBzb/y5MjWwomZt6+LMeCSqKisI1++0YVh9L3RkjVPBBb5OShh4laXk/N+p4KIRMFk6aLpp3luQ19+J2BJ91PKgDywdUegOS4Umnl2it9/Lfk0RgUtjdKuujNl6H91bGANdYqQIDAQABo4IC1zCCAtMwVAYIKwYBBQUHAQEESDBGMEQGCCsGAQUFBzAChjhodHRwOi8vY2NkLmFjc29sdXRpLmNvbS5ici9sY3IvYWMtc29sdXRpLW11bHRpcGxhLXYxLnA3YjAdBgNVHQ4EFgQUAKh/qxjy/GHQwsLwTQv784SoxeowCQYDVR0TBAIwADAfBgNVHSMEGDAWgBQ1rjEU9l7Sek9Y/jSoGmeXCsSbBzBeBgNVHSAEVzBVMFMGBmBMAQIBJjBJMEcGCCsGAQUFBwIBFjtodHRwczovL2NjZC5hY3NvbHV0aS5jb20uYnIvZG9jcy9kcGMtYWMtc29sdXRpLW11bHRpcGxhLnBkZjCB3gYDVR0fBIHWMIHTMD6gPKA6hjhodHRwOi8vY2NkLmFjc29sdXRpLmNvbS5ici9sY3IvYWMtc29sdXRpLW11bHRpcGxhLXYxLmNybDA/oD2gO4Y5aHR0cDovL2NjZDIuYWNzb2x1dGkuY29tLmJyL2xjci9hYy1zb2x1dGktbXVsdGlwbGEtdjEuY3JsMFCgTqBMhkpodHRwOi8vcmVwb3NpdG9yaW8uaWNwYnJhc2lsLmdvdi5ici9sY3IvQUNTT0xVVEkvYWMtc29sdXRpLW11bHRpcGxhLXYxLmNybDAOBgNVHQ8BAf8EBAMCBeAwHQYDVR0lBBYwFAYIKwYBBQUHAwIGCCsGAQUFBwMEMIG/BgNVHREEgbcwgbSBH2FuZGVyc29uZGViaWFuQGNvZmVybWV0YS5jb20uYnKgIwYFYEwBAwKgGhMYTUFVUklDSU8gREEgQ1VOSEEgQlJFTkNLoBkGBWBMAQMDoBATDjE3MjgxOTczMDAwMTQ5oDgGBWBMAQMEoC8TLTE1MDkxOTU1Mjk4MDEyMDY2OTEwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMKAXBgVgTAEDB6AOEwwwMDAwMDAwMDAwMDAwDQYJKoZIhvcNAQELBQADggIBAGCcVTvuPisxkhNBhkEm2exabWL6uF5lxydieslcEc7krpBtZi97k3nb6T2qKvC1q5Vvj6wtVrlAeHcfeVR0ffN5WvThYt/KxssUX8hvlcbzydARlP2hyOdjy0ZOax/nI3W8RocrZaFPRtZ1uMMkvdKQGlQxaOzBBVa8xSs4ujh8wIilpSaM8ywrvjiAaqQ5xiEdtNAjO+b0zqHGkkjUduWvEgGgHry6oW0tkz3AHTvt4DnOB9S2Jjj1wrhULEgdRl/VyEHT17S+9hU4PGQr2Rowl+wQW+SWRRQp+e0yGwXwMGJ9CrqCGAzXP+03eth3A0t+u/LKfPkYL6fEzEIsK5aDWEIeVk/padpaE7jxCYIXWqaytfmYgiSoHMEJ76WF+tZDcX9qKfqIbNn+3fKVO+/jruN9uN8Qzi3fvZDIkkVcnqOZ8BbMDHXZXBySJLru2+bWW8/yCPa585NdAGIEOkjyIWL6Bf4DFEv/kHapcoGv3+7wscpsR2fs+4JrXns3o5feXPRDb3NJPyk4uhPBR7lVdbkNoUzQEHKCLpq0vYyrQim8f5EgpIq7OPhFdKwMftWElGW1M9tUevfyaYyOpQRJ4O9AXbxojMSTFWP2hkZWviNlGPEhJ7MYLjLJHMgz5+4TMrYXqyXK2PC+WjxwQBi3rQj3p3IBnm1A4rM+tZii
+                    </X509Certificate>
+                </X509Data>
+            </KeyInfo>
+        </Signature>
+    </NFe>
+    <protNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00">
+        <infProt>
+            <tpAmb>1</tpAmb>
+            <verAplic>14.4.6</verAplic>
+            <chNFe>31191217281973001200550010001310881009091312</chNFe>
+            <dhRecbto>2019-12-20T16:37:52-03:00</dhRecbto>
+            <nProt>131193529826168</nProt>
+            <digVal>sOuqpxEq1OpaUF9H+3jbR6PSeD8=</digVal>
+            <cStat>100</cStat>
+            <xMotivo>Autorizado o uso da NF-e</xMotivo>
+        </infProt>
+    </protNFe>
+</nfeProc>
